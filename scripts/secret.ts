@@ -14,7 +14,8 @@ function sourceOf(): Map<string, string> {
   const sources = new Map<string, string>();
   for (const file of FILES) {
     try {
-      for (const key of Object.keys(parseEnv(fs.readFileSync(file, "utf8")))) sources.set(key, file);
+      for (const key of Object.keys(parseEnv(fs.readFileSync(file, "utf8"))))
+        sources.set(key, file);
     } catch {}
   }
   return sources;
@@ -22,7 +23,8 @@ function sourceOf(): Map<string, string> {
 
 function list(): number {
   const sources = sourceOf();
-  for (const key of Object.keys(fileEnv()).sort()) console.log(`${key}\t${sources.get(key) ?? "?"}`);
+  for (const key of Object.keys(fileEnv()).sort())
+    console.log(`${key}\t${sources.get(key) ?? "?"}`);
   return 0;
 }
 

@@ -19,7 +19,14 @@ try {
   assert.match(listed.stdout, new RegExp(`FAKE_ONE\\t${file}`));
   assert.ok(!/value-(one|two)-xyz/.test(listed.stdout + listed.stderr), "list leaks no value");
 
-  const ran = secret("run", "FAKE_ONE", "--", "sh", "-c", 'test "$FAKE_ONE" = value-one-xyz && test -z "$FAKE_TWO"');
+  const ran = secret(
+    "run",
+    "FAKE_ONE",
+    "--",
+    "sh",
+    "-c",
+    'test "$FAKE_ONE" = value-one-xyz && test -z "$FAKE_TWO"',
+  );
   assert.equal(ran.status, 0, ran.stderr);
   assert.equal(secret("run", "FAKE_ONE", "--", "sh", "-c", "exit 7").status, 7);
 
