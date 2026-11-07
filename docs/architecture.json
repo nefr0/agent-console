@@ -334,37 +334,239 @@
       "group": "Time travel",
       "icon": "history",
       "items": [
-        {"id": "tt-ui", "label": "History panel", "tech": "public/time-travel.js, time-travel.css", "desc": "Side panel or bottom sheet with scrubber, diff, rewind confirm, undo toast, fork", "icon": "history"},
-        {"id": "tt-http", "label": "Checkpoint routes", "tech": "server/index.ts", "desc": "GET checkpoints, diff, file; POST rewind, fork; WS rewound", "icon": "route"},
-        {"id": "tt-turns", "label": "Turn checkpoints", "tech": "server/threads.ts", "desc": "Snapshot at turn start, after file tools (500 ms debounce) and turn end; rewind, fork, prune", "icon": "flag"},
-        {"id": "tt-shadow", "label": "Shadow git store", "tech": "server/checkpoints.ts", "desc": "Per-folder repo, per-thread index; skips ignored, sensitive, over 10 MB files", "icon": "git-branch"}
+        {
+          "id": "tt-ui",
+          "label": "History panel",
+          "tech": "public/time-travel.js, time-travel.css",
+          "desc": "Side panel or bottom sheet with scrubber, diff, rewind confirm, undo toast, fork",
+          "icon": "history"
+        },
+        {
+          "id": "tt-http",
+          "label": "Checkpoint routes",
+          "tech": "server/index.ts",
+          "desc": "GET checkpoints, diff, file; POST rewind, fork; WS rewound",
+          "icon": "route"
+        },
+        {
+          "id": "tt-turns",
+          "label": "Turn checkpoints",
+          "tech": "server/threads.ts",
+          "desc": "Snapshot at turn start, after file tools (500 ms debounce) and turn end; rewind, fork, prune",
+          "icon": "flag"
+        },
+        {
+          "id": "tt-shadow",
+          "label": "Shadow git store",
+          "tech": "server/checkpoints.ts",
+          "desc": "Per-folder repo, per-thread index; skips ignored, sensitive, over 10 MB files",
+          "icon": "git-branch"
+        }
       ]
     },
     {
       "group": "Design system",
       "icon": "palette",
       "items": [
-        {"id": "ds-tokens", "label": "App token layer", "tech": "public/style.css", "desc": ":root blocks: base, dark, coarse pointer, high contrast", "icon": "palette"},
-        {"id": "ds-build", "label": "Package build", "tech": "scripts/build-design-system.js", "desc": "Copies the token layer, parses tokens.json; test fails on drift", "icon": "hammer"},
-        {"id": "ds-package", "label": "Published package", "tech": "packages/design-system", "desc": "@agent-console/design-system: design-system.css, tokens.json, index.js, index.d.ts", "icon": "package"},
-        {"id": "ds-schedule", "label": "Weekly scheduled task", "tech": "Agent Console Schedules", "desc": "Design system suggestions, Monday 09:00, Claude Haiku", "icon": "calendar-clock"},
-        {"id": "ds-sources", "label": "Suggestion run", "tech": "scripts/check-design-system-sources.js", "desc": "Reads Hacker News and Lobsters only; triage rule; drafts.json or run record", "icon": "filter"},
-        {"id": "ds-issues", "label": "GitHub issues", "tech": "gh issue list/create", "desc": "Dedupe by link; files only approved suggestions, label design-system", "icon": "circle-dot"}
+        {
+          "id": "ds-tokens",
+          "label": "App token layer",
+          "tech": "public/style.css",
+          "desc": ":root blocks: base, dark, coarse pointer, high contrast",
+          "icon": "palette"
+        },
+        {
+          "id": "ds-build",
+          "label": "Package build",
+          "tech": "scripts/build-design-system.js",
+          "desc": "Copies the token layer, parses tokens.json; test fails on drift",
+          "icon": "hammer"
+        },
+        {
+          "id": "ds-package",
+          "label": "Published package",
+          "tech": "packages/design-system",
+          "desc": "@agent-console/design-system: design-system.css, tokens.json, index.js, index.d.ts",
+          "icon": "package"
+        },
+        {
+          "id": "ds-schedule",
+          "label": "Weekly scheduled task",
+          "tech": "Agent Console Schedules",
+          "desc": "Design system suggestions, Monday 09:00, Claude Haiku",
+          "icon": "calendar-clock"
+        },
+        {
+          "id": "ds-sources",
+          "label": "Suggestion run",
+          "tech": "scripts/check-design-system-sources.js",
+          "desc": "Reads Hacker News and Lobsters only; triage rule; drafts.json or run record",
+          "icon": "filter"
+        },
+        {
+          "id": "ds-issues",
+          "label": "GitHub issues",
+          "tech": "gh issue list/create",
+          "desc": "Dedupe by link; files only approved suggestions, label design-system",
+          "icon": "circle-dot"
+        }
       ]
     },
-    {"group": "Issue automation", "icon": "bot", "items": [
-      {"id": "ia-prompt", "label": "Worker prompt", "tech": "server/window-dispatch.ts", "desc": "Unattended issue prompt; names the pr-evidence template and pr-evidence create", "icon": "message-square-text"},
-      {"id": "ia-worker", "label": "Pi worker", "tech": "Pi thread, own worktree", "desc": "Pushes the branch; stops after two guard rejections", "icon": "bot"},
-      {"id": "ia-guard", "label": "PR evidence guard", "tech": "brain/bin/pr-evidence-guard", "desc": "Blocks gh pr create; names missing sections and the template command", "icon": "shield-check"},
-      {"id": "ia-review", "label": "Review loop", "tech": "server/review-launch.ts", "desc": "On worker turn end: finds the open PR, else resumes the worker", "icon": "git-pull-request"},
-      {"id": "ia-draft", "label": "Draft opener", "tech": "server/review-draft.ts, server/session-prs.ts", "desc": "Counts guard rejections in the transcript; at two opens a draft PR and comments the error", "icon": "git-pull-request-draft"},
-      {"id": "ia-github", "label": "GitHub", "tech": "gh api", "desc": "Draft PR and guard error comment", "icon": "cloud"},
-      {"id": "ia-recovery", "label": "Worker recovery", "tech": "server/review-recovery.ts", "desc": "Resumes an incomplete worker turn; queues premium with data.reason when retries run out", "icon": "rotate-ccw"},
-      {"id": "ia-logs", "label": "Dispatch ledger and event log", "tech": "window-dispatch.jsonl, automation-events.jsonl(.1)", "desc": "Live data directory: one ledger row per dispatch, one event per step", "icon": "database"},
-      {"id": "ia-report", "label": "worker-retries report", "tech": "bin/agent-console worker-retries", "desc": "Read-only: stranded live dispatches with turn ends, retries, PR numbers and premium reasons; a zero result prints filter and range", "icon": "file-search"}
-    ]},
-    {"group": "Deployment identity", "icon": "key-round", "status": "modified", "items": [{"id": "id-env", "label": "Console env file", "tech": "~/.config/agent-console/env, .env.example", "desc": "Gitignored real values; .env.example lists names with placeholders", "icon": "file-key", "status": "modified"}, {"id": "id-accounts", "label": "Claude accounts", "tech": "server/providers/claude-accounts.ts, bin/claude-account", "desc": "Expected emails from env; unset skips mismatch check and --email", "icon": "users", "status": "modified"}, {"id": "id-vault", "label": "Vault alerts", "tech": "server/vault.ts", "desc": "Default alert recipients from the alert env vars, else none", "icon": "bell", "status": "modified"}, {"id": "id-caddy", "label": "Caddy snippets", "tech": "docs/console-url.caddy, docs/acode-caddy.caddy", "desc": "Host comes from the workspace host suffix env var", "icon": "route", "status": "modified"}, {"id": "id-proxyenv", "label": "VPS console-proxy.env", "tech": "/etc/caddy/console-proxy.env", "desc": "Two new lines: workspace host suffix and container name", "icon": "server", "status": "added"}, {"id": "id-triage", "label": "Triage Caddy worker", "tech": "scripts/github-triage-caddy.py", "desc": "Container name and validate env parsed from the two Caddy env files; errors if missing", "icon": "shield-check", "status": "modified"}]},
-    {"group": "PR cockpit", "icon": "git-pull-request", "status": "added", "items": [{"id": "pr-store", "label": "PR cockpit store", "tech": "server/pr-cockpit.ts", "desc": "One GraphQL snapshot per PR; check-run poll with ETag; 30 s pending, 10 min idle; global 403/429 pause; evidence extracted as {label,url} from image alt text, sheet shows text links, no thumbnails", "icon": "database", "status": "modified"}, {"id": "pr-ship", "label": "PR ship job", "tech": "server/pr-ship-job.ts", "desc": "Detached pr-ship wrapper; job record and output in DATA_DIR/pr-ship-jobs; reattaches after restart; exit 0 merged, 1 attention, else failed", "icon": "rocket", "status": "added"}, {"id": "pr-signal", "label": "PR signal marker", "tech": "closed-signal.ts", "desc": "pr-signals/<owner_repo>-<pr or sha>.json from webhook events; Console consumes with 3 s per-key debounce; never touches triage queue", "icon": "bell", "status": "added"}]},
+    {
+      "group": "Issue automation",
+      "icon": "bot",
+      "items": [
+        {
+          "id": "ia-prompt",
+          "label": "Worker prompt",
+          "tech": "server/window-dispatch.ts",
+          "desc": "Unattended issue prompt; names the pr-evidence template and pr-evidence create",
+          "icon": "message-square-text"
+        },
+        {
+          "id": "ia-worker",
+          "label": "Pi worker",
+          "tech": "Pi thread, own worktree",
+          "desc": "Pushes the branch; stops after two guard rejections",
+          "icon": "bot"
+        },
+        {
+          "id": "ia-guard",
+          "label": "PR evidence guard",
+          "tech": "brain/bin/pr-evidence-guard",
+          "desc": "Blocks gh pr create; names missing sections and the template command",
+          "icon": "shield-check"
+        },
+        {
+          "id": "ia-review",
+          "label": "Review loop",
+          "tech": "server/review-launch.ts",
+          "desc": "On worker turn end: finds the open PR, else resumes the worker",
+          "icon": "git-pull-request"
+        },
+        {
+          "id": "ia-draft",
+          "label": "Draft opener",
+          "tech": "server/review-draft.ts, server/session-prs.ts",
+          "desc": "Counts guard rejections in the transcript; at two opens a draft PR and comments the error",
+          "icon": "git-pull-request-draft"
+        },
+        {
+          "id": "ia-github",
+          "label": "GitHub",
+          "tech": "gh api",
+          "desc": "Draft PR and guard error comment",
+          "icon": "cloud"
+        },
+        {
+          "id": "ia-recovery",
+          "label": "Worker recovery",
+          "tech": "server/review-recovery.ts",
+          "desc": "Resumes an incomplete worker turn; queues premium with data.reason when retries run out",
+          "icon": "rotate-ccw"
+        },
+        {
+          "id": "ia-logs",
+          "label": "Dispatch ledger and event log",
+          "tech": "window-dispatch.jsonl, automation-events.jsonl(.1)",
+          "desc": "Live data directory: one ledger row per dispatch, one event per step",
+          "icon": "database"
+        },
+        {
+          "id": "ia-report",
+          "label": "worker-retries report",
+          "tech": "bin/agent-console worker-retries",
+          "desc": "Read-only: stranded live dispatches with turn ends, retries, PR numbers and premium reasons; a zero result prints filter and range",
+          "icon": "file-search"
+        }
+      ]
+    },
+    {
+      "group": "Deployment identity",
+      "icon": "key-round",
+      "status": "modified",
+      "items": [
+        {
+          "id": "id-env",
+          "label": "Console env file",
+          "tech": "~/.config/agent-console/env, .env.example",
+          "desc": "Gitignored real values; .env.example lists names with placeholders",
+          "icon": "file-key",
+          "status": "modified"
+        },
+        {
+          "id": "id-accounts",
+          "label": "Claude accounts",
+          "tech": "server/providers/claude-accounts.ts, bin/claude-account",
+          "desc": "Expected emails from env; unset skips mismatch check and --email",
+          "icon": "users",
+          "status": "modified"
+        },
+        {
+          "id": "id-vault",
+          "label": "Vault alerts",
+          "tech": "server/vault.ts",
+          "desc": "Default alert recipients from the alert env vars, else none",
+          "icon": "bell",
+          "status": "modified"
+        },
+        {
+          "id": "id-caddy",
+          "label": "Caddy snippets",
+          "tech": "docs/console-url.caddy, docs/acode-caddy.caddy",
+          "desc": "Host comes from the workspace host suffix env var",
+          "icon": "route",
+          "status": "modified"
+        },
+        {
+          "id": "id-proxyenv",
+          "label": "VPS console-proxy.env",
+          "tech": "/etc/caddy/console-proxy.env",
+          "desc": "Two new lines: workspace host suffix and container name",
+          "icon": "server",
+          "status": "added"
+        },
+        {
+          "id": "id-triage",
+          "label": "Triage Caddy worker",
+          "tech": "scripts/github-triage-caddy.py",
+          "desc": "Container name and validate env parsed from the two Caddy env files; errors if missing",
+          "icon": "shield-check",
+          "status": "modified"
+        }
+      ]
+    },
+    {
+      "group": "PR cockpit",
+      "icon": "git-pull-request",
+      "status": "added",
+      "items": [
+        {
+          "id": "pr-store",
+          "label": "PR cockpit store",
+          "tech": "server/pr-cockpit.ts",
+          "desc": "One GraphQL snapshot per PR; check-run poll with ETag; 30 s pending, 10 min idle; global 403/429 pause; evidence extracted as {label,url} from image alt text, sheet shows text links, no thumbnails",
+          "icon": "database",
+          "status": "modified"
+        },
+        {
+          "id": "pr-ship",
+          "label": "PR ship job",
+          "tech": "server/pr-ship-job.ts",
+          "desc": "Detached pr-ship wrapper; job record and output in DATA_DIR/pr-ship-jobs; reattaches after restart; exit 0 merged, 1 attention, else failed",
+          "icon": "rocket",
+          "status": "added"
+        },
+        {
+          "id": "pr-signal",
+          "label": "PR signal marker",
+          "tech": "closed-signal.ts",
+          "desc": "pr-signals/<owner_repo>-<pr or sha>.json from webhook events; Console consumes with 3 s per-key debounce; never touches triage queue",
+          "icon": "bell",
+          "status": "added"
+        }
+      ]
+    },
     {
       "group": "Tool permission card",
       "icon": "shield-question",
@@ -404,22 +606,300 @@
       ],
       "status": "added"
     },
-    {"group":"Scheduled tasks","icon":"calendar-clock","status":"modified","items":[{"id":"sch-tools","label":"Schedule tools","tech":"console-tools.mjs","desc":"schedule_create and schedule_update take tier (free|paid) and model","icon":"wrench","status":"modified"},{"id":"sch-tier","label":"resolveTier","tech":"schedules.ts","desc":"free = Pi default model, errors when Pi is down; paid = Claude Sonnet, low effort","icon":"scale","status":"added"},{"id":"sch-agent","label":"resolveAgent","tech":"schedules.ts","desc":"Applies the tier; an unknown model is an error, not a silent fallback; tier is not persisted","icon":"list-checks","status":"modified"},{"id":"sch-pi","label":"Pi provider","tech":"pi.ts","desc":"Free tier: default model and status check","icon":"cpu"},{"id":"sch-claude","label":"Claude provider","tech":"claude.ts","desc":"Paid tier: sonnet at low effort","icon":"sparkles"}]},
-    {"group":"AI digest","icon":"newspaper","status":"added","items":[{"id":"dg-cli","label":"ai-digest script","tech":"scripts/ai-digest.ts","desc":"Filters AI items, drops URLs seen in the last report, caps output at 16 KB; a failed source prints one error line","icon":"terminal","status":"added"},{"id":"dg-gh","label":"GitHub trending","tech":"github.com/trending","desc":"Parsed with linkedom; search API fallback","icon":"git-branch","status":"added"},{"id":"dg-ax","label":"arXiv","tech":"rss.arxiv.org","desc":"cs.AI, cs.CL, cs.LG; Atom API on empty feed; ranked by Hugging Face upvotes","icon":"file-text","status":"added"},{"id":"dg-tr","label":"Google Trends","tech":"trends.google.com","desc":"US trending RSS filtered by AI keywords","icon":"trending-up","status":"added"},{"id":"dg-out","label":"Digest text","tech":"stdout","desc":"Sections GitHub, arXiv, Trends; text or --json","icon":"file-output","status":"added"}]},
-    {"group": "Workspace health", "icon": "heart-pulse", "status": "added", "items": [{"id": "hl-runner", "label": "Health runner", "tech": "server/health/runner.ts", "desc": "croner: nightly 04:15 IST full, hourly camofox only, manual run", "icon": "timer", "status": "added"}, {"id": "hl-checks", "label": "Workspace checks", "tech": "server/health/checks.ts", "desc": "Doctor items, disk, VPS ssh, release drift, GitHub triage receiver, workspace boot, phone link, CodeGraph watcher (heal: restart when down)", "icon": "list-checks", "status": "added"}, {"id": "hl-cam", "label": "Camofox probe and heal", "tech": "server/health/camofox.ts", "desc": "Probe opens and closes a tab in the share session; on 5xx, timeout or refused: SIGTERM then SIGKILL the pid (pid file, else single listener fallback), respawn; 4xx never heals; 10 min gap, 3 per 24 h", "icon": "heart-pulse", "status": "added"}, {"id": "hl-store", "label": "Run store", "tech": "health/runs.jsonl", "desc": "One JSON record per run with per-check status and heal record; last 14 read for history", "icon": "database", "status": "added"}, {"id": "hl-api", "label": "Health routes", "tech": "server/index.ts", "desc": "GET /api/host/health (latest, history, running); POST /api/host/health/run (same-origin)", "icon": "route", "status": "added"}, {"id": "hl-panel", "label": "Host page panel", "tech": "public/host-health.js", "desc": "Workspace health section on /host: overall badge, rows with status and heal note, 14-run strip, Run now", "icon": "layout-dashboard", "status": "added"}]},
-{"group": "Thread graph", "icon": "network", "items": [{"id": "tg-index", "label": "Touch index", "tech": "server/session-search.ts", "desc": "touches table: files, brain pages and peer threads per thread; forkedFrom on the thread record", "icon": "database", "status": "added"}, {"id": "tg-build", "label": "Graph builder", "tech": "server/thread-graph.ts", "desc": "Pure: links, hubs for repos and tasks, fan-out cap 25, node cap 500, since cursor", "icon": "git-fork", "status": "added"}, {"id": "tg-api", "label": "Graph route", "tech": "server/index.ts", "desc": "GET /api/thread-graph (login, no-store, serves stale while syncing) and /graph; debounced graph_dirty broadcast", "icon": "server", "status": "added"}, {"id": "tg-core", "label": "Graph core", "tech": "public/graph-core.js", "desc": "Cytoscape loader and style helpers shared with the brain page", "icon": "boxes", "status": "added"}, {"id": "tg-page", "label": "Thread graph page", "tech": "public/thread-graph.js", "desc": "Provider fill, status ring, kind legend toggles, cluster list on phones, in-place live updates", "icon": "network", "status": "added"}], "status": "added"},
-    {"group": "Security fix flow", "icon": "shield-alert", "status": "added", "items": [{"id": "sec-fix-btn", "label": "Fix it button", "tech": "public/security.js", "desc": "One link per Trivy target, Falco rule and ClamAV file; opens /?fix_scan&fix_kind&fix_key", "icon": "mouse-pointer-click", "status": "added"}, {"id": "sec-fix-api", "label": "Fix route", "tech": "POST /api/security/fix in server/security.ts", "desc": "Same-origin only; validates scan id, kind and key; refetches the scan over VPS ssh get; 404 when the key is gone, 502 when ssh fails", "icon": "server", "status": "added"}, {"id": "sec-fix-prompt", "label": "Fenced prompt builder", "tech": "server/security-fix.ts", "desc": "Scanner text sanitized and wrapped in one random untrusted-scan-data fence; prompt capped at 6 KB; instructions stay outside the fence", "icon": "shield-check", "status": "added"}, {"id": "sec-fix-picker", "label": "Thread picker", "tech": "public/app.js", "desc": "Reuses the share picker banner; pick a thread or tap new thread; fix_* params stripped from the URL", "icon": "list-checks", "status": "added"}, {"id": "sec-fix-draft", "label": "Composer draft", "tech": "public/app.js", "desc": "Prompt appended to the chosen thread composer; the user reads it and sends it manually, nothing is sent automatically", "icon": "message-square", "status": "added"}]},
+    {
+      "group": "Scheduled tasks",
+      "icon": "calendar-clock",
+      "status": "modified",
+      "items": [
+        {
+          "id": "sch-tools",
+          "label": "Schedule tools",
+          "tech": "console-tools.mjs",
+          "desc": "schedule_create and schedule_update take tier (free|paid) and model",
+          "icon": "wrench",
+          "status": "modified"
+        },
+        {
+          "id": "sch-tier",
+          "label": "resolveTier",
+          "tech": "schedules.ts",
+          "desc": "free = Pi default model, errors when Pi is down; paid = Claude Sonnet, low effort",
+          "icon": "scale",
+          "status": "added"
+        },
+        {
+          "id": "sch-agent",
+          "label": "resolveAgent",
+          "tech": "schedules.ts",
+          "desc": "Applies the tier; an unknown model is an error, not a silent fallback; tier is not persisted",
+          "icon": "list-checks",
+          "status": "modified"
+        },
+        {
+          "id": "sch-pi",
+          "label": "Pi provider",
+          "tech": "pi.ts",
+          "desc": "Free tier: default model and status check",
+          "icon": "cpu"
+        },
+        {
+          "id": "sch-claude",
+          "label": "Claude provider",
+          "tech": "claude.ts",
+          "desc": "Paid tier: sonnet at low effort",
+          "icon": "sparkles"
+        }
+      ]
+    },
+    {
+      "group": "AI digest",
+      "icon": "newspaper",
+      "status": "added",
+      "items": [
+        {
+          "id": "dg-cli",
+          "label": "ai-digest script",
+          "tech": "scripts/ai-digest.ts",
+          "desc": "Filters AI items, drops URLs seen in the last report, caps output at 16 KB; a failed source prints one error line",
+          "icon": "terminal",
+          "status": "added"
+        },
+        {
+          "id": "dg-gh",
+          "label": "GitHub trending",
+          "tech": "github.com/trending",
+          "desc": "Parsed with linkedom; search API fallback",
+          "icon": "git-branch",
+          "status": "added"
+        },
+        {
+          "id": "dg-ax",
+          "label": "arXiv",
+          "tech": "rss.arxiv.org",
+          "desc": "cs.AI, cs.CL, cs.LG; Atom API on empty feed; ranked by Hugging Face upvotes",
+          "icon": "file-text",
+          "status": "added"
+        },
+        {
+          "id": "dg-tr",
+          "label": "Google Trends",
+          "tech": "trends.google.com",
+          "desc": "US trending RSS filtered by AI keywords",
+          "icon": "trending-up",
+          "status": "added"
+        },
+        {
+          "id": "dg-out",
+          "label": "Digest text",
+          "tech": "stdout",
+          "desc": "Sections GitHub, arXiv, Trends; text or --json",
+          "icon": "file-output",
+          "status": "added"
+        }
+      ]
+    },
+    {
+      "group": "Workspace health",
+      "icon": "heart-pulse",
+      "status": "added",
+      "items": [
+        {
+          "id": "hl-runner",
+          "label": "Health runner",
+          "tech": "server/health/runner.ts",
+          "desc": "croner: nightly 04:15 IST full, hourly camofox only, manual run",
+          "icon": "timer",
+          "status": "added"
+        },
+        {
+          "id": "hl-checks",
+          "label": "Workspace checks",
+          "tech": "server/health/checks.ts",
+          "desc": "Doctor items, disk, VPS ssh, release drift, GitHub triage receiver, workspace boot, phone link, CodeGraph watcher (heal: restart when down)",
+          "icon": "list-checks",
+          "status": "added"
+        },
+        {
+          "id": "hl-cam",
+          "label": "Camofox probe and heal",
+          "tech": "server/health/camofox.ts",
+          "desc": "Probe opens and closes a tab in the share session; on 5xx, timeout or refused: SIGTERM then SIGKILL the pid (pid file, else single listener fallback), respawn; 4xx never heals; 10 min gap, 3 per 24 h",
+          "icon": "heart-pulse",
+          "status": "added"
+        },
+        {
+          "id": "hl-store",
+          "label": "Run store",
+          "tech": "health/runs.jsonl",
+          "desc": "One JSON record per run with per-check status and heal record; last 14 read for history",
+          "icon": "database",
+          "status": "added"
+        },
+        {
+          "id": "hl-api",
+          "label": "Health routes",
+          "tech": "server/index.ts",
+          "desc": "GET /api/host/health (latest, history, running); POST /api/host/health/run (same-origin)",
+          "icon": "route",
+          "status": "added"
+        },
+        {
+          "id": "hl-panel",
+          "label": "Host page panel",
+          "tech": "public/host-health.js",
+          "desc": "Workspace health section on /host: overall badge, rows with status and heal note, 14-run strip, Run now",
+          "icon": "layout-dashboard",
+          "status": "added"
+        }
+      ]
+    },
+    {
+      "group": "Thread graph",
+      "icon": "network",
+      "items": [
+        {
+          "id": "tg-index",
+          "label": "Touch index",
+          "tech": "server/session-search.ts",
+          "desc": "touches table: files, brain pages and peer threads per thread; forkedFrom on the thread record",
+          "icon": "database",
+          "status": "added"
+        },
+        {
+          "id": "tg-build",
+          "label": "Graph builder",
+          "tech": "server/thread-graph.ts",
+          "desc": "Pure: links, hubs for repos and tasks, fan-out cap 25, node cap 500, since cursor",
+          "icon": "git-fork",
+          "status": "added"
+        },
+        {
+          "id": "tg-api",
+          "label": "Graph route",
+          "tech": "server/index.ts",
+          "desc": "GET /api/thread-graph (login, no-store, serves stale while syncing) and /graph; debounced graph_dirty broadcast",
+          "icon": "server",
+          "status": "added"
+        },
+        {
+          "id": "tg-core",
+          "label": "Graph core",
+          "tech": "public/graph-core.js",
+          "desc": "Cytoscape loader and style helpers shared with the brain page",
+          "icon": "boxes",
+          "status": "added"
+        },
+        {
+          "id": "tg-page",
+          "label": "Thread graph page",
+          "tech": "public/thread-graph.js",
+          "desc": "Provider fill, status ring, kind legend toggles, cluster list on phones, in-place live updates",
+          "icon": "network",
+          "status": "added"
+        }
+      ],
+      "status": "added"
+    },
+    {
+      "group": "Security fix flow",
+      "icon": "shield-alert",
+      "status": "added",
+      "items": [
+        {
+          "id": "sec-fix-btn",
+          "label": "Fix it button",
+          "tech": "public/security.js",
+          "desc": "One link per Trivy target, Falco rule and ClamAV file; opens /?fix_scan&fix_kind&fix_key",
+          "icon": "mouse-pointer-click",
+          "status": "added"
+        },
+        {
+          "id": "sec-fix-api",
+          "label": "Fix route",
+          "tech": "POST /api/security/fix in server/security.ts",
+          "desc": "Same-origin only; validates scan id, kind and key; refetches the scan over VPS ssh get; 404 when the key is gone, 502 when ssh fails",
+          "icon": "server",
+          "status": "added"
+        },
+        {
+          "id": "sec-fix-prompt",
+          "label": "Fenced prompt builder",
+          "tech": "server/security-fix.ts",
+          "desc": "Scanner text sanitized and wrapped in one random untrusted-scan-data fence; prompt capped at 6 KB; instructions stay outside the fence",
+          "icon": "shield-check",
+          "status": "added"
+        },
+        {
+          "id": "sec-fix-picker",
+          "label": "Thread picker",
+          "tech": "public/app.js",
+          "desc": "Reuses the share picker banner; pick a thread or tap new thread; fix_* params stripped from the URL",
+          "icon": "list-checks",
+          "status": "added"
+        },
+        {
+          "id": "sec-fix-draft",
+          "label": "Composer draft",
+          "tech": "public/app.js",
+          "desc": "Prompt appended to the chosen thread composer; the user reads it and sends it manually, nothing is sent automatically",
+          "icon": "message-square",
+          "status": "added"
+        }
+      ]
+    },
     {
       "group": "Voice",
       "icon": "mic",
       "status": "added",
       "items": [
-        {"id":"vc-mic","label":"Composer mic","tech":"public/voice.js","desc":"Hold-to-talk (Alt+Space on desktop), MediaRecorder webm or mp4; transcript lands at the caret, never auto-sent; question cards match option labels","icon":"mic","status":"added"},
-        {"id":"vc-route","label":"Transcribe route","tech":"server/index.ts","desc":"POST /api/voice/transcribe: same-origin, audio/* only (415), 2 MB cap (413); GET /api/voice/status","icon":"route","status":"added"},
-        {"id":"vc-worker","label":"Voice worker","tech":"server/voice.ts","desc":"Queue of one with 30 s timeout, lazy model load, unload after 10 min idle, worker thread with 2 threads","icon":"cpu","status":"added"},
-        {"id":"vc-ffmpeg","label":"ffmpeg decode","tech":"ffmpeg","desc":"stdin to stdout, 16 kHz mono float, no temp files; audio is never stored or logged","icon":"audio-lines","status":"added"},
-        {"id":"vc-model","label":"sherpa-onnx + Parakeet","tech":"sherpa-onnx-node","desc":"Parakeet TDT 0.6b v2 int8 English, fetched by scripts/voice-models.sh; doctor reports presence","icon":"brain","status":"added"},
-        {"id":"vc-sw","label":"Push answer actions","tech":"public/sw.js","desc":"Push shows up to two option buttons with a one-time nonce; a tap posts the answer","icon":"bell-ring","status":"added"}
+        {
+          "id": "vc-mic",
+          "label": "Composer mic",
+          "tech": "public/voice.js",
+          "desc": "Hold-to-talk (Alt+Space on desktop), MediaRecorder webm or mp4; transcript lands at the caret, never auto-sent; question cards match option labels",
+          "icon": "mic",
+          "status": "added"
+        },
+        {
+          "id": "vc-route",
+          "label": "Transcribe route",
+          "tech": "server/index.ts",
+          "desc": "POST /api/voice/transcribe: same-origin, audio/* only (415), 2 MB cap (413); GET /api/voice/status",
+          "icon": "route",
+          "status": "added"
+        },
+        {
+          "id": "vc-worker",
+          "label": "Voice worker",
+          "tech": "server/voice.ts",
+          "desc": "Queue of one with 30 s timeout, lazy model load, unload after 10 min idle, worker thread with 2 threads",
+          "icon": "cpu",
+          "status": "added"
+        },
+        {
+          "id": "vc-ffmpeg",
+          "label": "ffmpeg decode",
+          "tech": "ffmpeg",
+          "desc": "stdin to stdout, 16 kHz mono float, no temp files; audio is never stored or logged",
+          "icon": "audio-lines",
+          "status": "added"
+        },
+        {
+          "id": "vc-model",
+          "label": "sherpa-onnx + Parakeet",
+          "tech": "sherpa-onnx-node",
+          "desc": "Parakeet TDT 0.6b v2 int8 English, fetched by scripts/voice-models.sh; doctor reports presence",
+          "icon": "brain",
+          "status": "added"
+        },
+        {
+          "id": "vc-sw",
+          "label": "Push answer actions",
+          "tech": "public/sw.js",
+          "desc": "Push shows up to two option buttons with a one-time nonce; a tap posts the answer",
+          "icon": "bell-ring",
+          "status": "added"
+        }
       ]
     },
     {
@@ -468,7 +948,98 @@
         }
       ]
     },
-    {"group":"Agent tool PATH","icon":"terminal","status":"modified","items":[{"id":"ap-launcher","label":"Launcher","tech":"bin/agent-console","desc":"Now sources dotfiles shell/path.sh so the server and every child agent inherit brain/bin, dotfiles/bin, agent-console current/bin","icon":"rocket","status":"modified"},{"id":"ap-pathsh","label":"Shared PATH file","tech":"dotfiles shell/path.sh","desc":"One owner of the agent tool PATH; console-tool was command not found in 11 sessions","icon":"file-code"},{"id":"ap-secret","label":"secret CLI","tech":"scripts/secret.ts, bin/secret","desc":"list prints names only; run NAME -- cmd injects the value into the child env, never prints it","icon":"square-terminal","status":"added"},{"id":"ap-doctor","label":"Doctor agent-tools check","tech":"server/doctor.ts","desc":"Warns when console-tool, brain, waitfor or secret are not on the server PATH","icon":"stethoscope","status":"added"},{"id":"ap-agent","label":"Agent child process","tech":"server/providers/env.ts","desc":"Inherits the server PATH and runs tools by bare name","icon":"bot","status":"modified"}]}
+    {
+      "group": "Agent tool PATH",
+      "icon": "terminal",
+      "status": "modified",
+      "items": [
+        {
+          "id": "ap-launcher",
+          "label": "Launcher",
+          "tech": "bin/agent-console",
+          "desc": "Now sources dotfiles shell/path.sh so the server and every child agent inherit brain/bin, dotfiles/bin, agent-console current/bin",
+          "icon": "rocket",
+          "status": "modified"
+        },
+        {
+          "id": "ap-pathsh",
+          "label": "Shared PATH file",
+          "tech": "dotfiles shell/path.sh",
+          "desc": "One owner of the agent tool PATH; console-tool was command not found in 11 sessions",
+          "icon": "file-code"
+        },
+        {
+          "id": "ap-secret",
+          "label": "secret CLI",
+          "tech": "scripts/secret.ts, bin/secret",
+          "desc": "list prints names only; run NAME -- cmd injects the value into the child env, never prints it",
+          "icon": "square-terminal",
+          "status": "added"
+        },
+        {
+          "id": "ap-doctor",
+          "label": "Doctor agent-tools check",
+          "tech": "server/doctor.ts",
+          "desc": "Warns when console-tool, brain, waitfor or secret are not on the server PATH",
+          "icon": "stethoscope",
+          "status": "added"
+        },
+        {
+          "id": "ap-agent",
+          "label": "Agent child process",
+          "tech": "server/providers/env.ts",
+          "desc": "Inherits the server PATH and runs tools by bare name",
+          "icon": "bot",
+          "status": "modified"
+        }
+      ]
+    },
+    {
+      "group": "Autofund page",
+      "sub": "public/autofund.*, server/autofund.ts",
+      "border": "solid",
+      "color": "teal",
+      "icon": "wallet",
+      "status": "added",
+      "items": [
+        {
+          "id": "af-page",
+          "label": "Autofund page",
+          "tech": "public/autofund.html/js/css, Chart.js",
+          "desc": "Balance, projection bands, agents, review queue, alerts, deposit, kill request; confirm before writes",
+          "icon": "layout-dashboard",
+          "color": "teal",
+          "status": "added"
+        },
+        {
+          "id": "af-route",
+          "label": "Autofund routes",
+          "tech": "server/autofund.ts",
+          "desc": "GET /api/autofund (30 s cache, stale fallback), POST /api/autofund/action; session + same-origin, verb allowlist",
+          "icon": "route",
+          "color": "blue",
+          "status": "added"
+        },
+        {
+          "id": "af-relay",
+          "label": "VPS relay",
+          "tech": "ssh forced command, autofund-relay user",
+          "desc": "Allowlisted verbs only; talks to 127.0.0.1:8765",
+          "icon": "key-round",
+          "color": "slate",
+          "status": "added"
+        },
+        {
+          "id": "af-web",
+          "label": "Autofund web API",
+          "tech": "autofund repo, FastAPI",
+          "desc": "/api/dashboard JSON and operator POSTs (separate repo)",
+          "icon": "server",
+          "color": "indigo",
+          "status": "added"
+        }
+      ]
+    }
   ],
   "edges": [
     {
@@ -636,32 +1207,138 @@
       "to": "todo-ws",
       "label": "todo_* tool call"
     },
-    {"from":"app","to":"tt-ui","label":"History header button"},
-    {"from":"tt-ui","to":"tt-http","label":"HTTP checkpoints, diff, rewind, fork"},
-    {"from":"tt-http","to":"tt-turns","label":"rewind / fork"},
-    {"from":"tt-turns","to":"tt-shadow","label":"snapshot, restore"},
-    {"from":"app","to":"history-snapshot","label":"open or older page via Threads.page"},
-    {"from":"history-snapshot","to":"history-cache","label":"offsets and view sidecars"},
-    {"from":"history-proofs","to":"history-snapshot","label":"models invariants; not runtime"},
-    {"from":"ds-tokens","to":"ds-build","label":"read token layer"},
-    {"from":"ds-build","to":"ds-package","label":"write css and tokens.json"},
-    {"from":"ds-schedule","to":"ds-sources","label":"run weekly"},
-    {"from":"ds-sources","to":"ds-issues","label":"list, create approved"},
-    {"from":"ia-prompt","to":"ia-worker","label":"task with evidence CLI"},
-    {"from":"ia-worker","to":"ia-guard","label":"pr-evidence create"},
-    {"from":"ia-worker","to":"ia-review","label":"turn end"},
-    {"from":"ia-review","to":"ia-draft","label":"no open PR"},
-    {"from":"ia-draft","to":"ia-github","label":"draft PR, guard comment"},
-    {"from":"ia-review","to":"ia-recovery","label":"no PR, turn incomplete"},
-    {"from":"ia-recovery","to":"ia-logs","label":"worker start and info events"},
-    {"from":"ia-report","to":"ia-logs","label":"read only"},
-    {"from":"id-env","to":"id-accounts","label":"CLAUDE_*_EMAIL"},
-    {"from":"id-env","to":"id-vault","label":"alert env vars"},
-    {"from":"id-proxyenv","to":"id-caddy","label":"host suffix"},
-    {"from":"id-proxyenv","to":"id-triage","label":"container name"},
-    {"from":"pr-signal","to":"pr-store","label":"debounced refresh, push if changed","status":"added"},
-    {"from":"pr-ship","to":"pr-store","label":"ship state on card","status":"added"},
-    {"from":"history-snapshot","to":"history-view-cache","label":"reuse lines"},
+    {
+      "from": "app",
+      "to": "tt-ui",
+      "label": "History header button"
+    },
+    {
+      "from": "tt-ui",
+      "to": "tt-http",
+      "label": "HTTP checkpoints, diff, rewind, fork"
+    },
+    {
+      "from": "tt-http",
+      "to": "tt-turns",
+      "label": "rewind / fork"
+    },
+    {
+      "from": "tt-turns",
+      "to": "tt-shadow",
+      "label": "snapshot, restore"
+    },
+    {
+      "from": "app",
+      "to": "history-snapshot",
+      "label": "open or older page via Threads.page"
+    },
+    {
+      "from": "history-snapshot",
+      "to": "history-cache",
+      "label": "offsets and view sidecars"
+    },
+    {
+      "from": "history-proofs",
+      "to": "history-snapshot",
+      "label": "models invariants; not runtime"
+    },
+    {
+      "from": "ds-tokens",
+      "to": "ds-build",
+      "label": "read token layer"
+    },
+    {
+      "from": "ds-build",
+      "to": "ds-package",
+      "label": "write css and tokens.json"
+    },
+    {
+      "from": "ds-schedule",
+      "to": "ds-sources",
+      "label": "run weekly"
+    },
+    {
+      "from": "ds-sources",
+      "to": "ds-issues",
+      "label": "list, create approved"
+    },
+    {
+      "from": "ia-prompt",
+      "to": "ia-worker",
+      "label": "task with evidence CLI"
+    },
+    {
+      "from": "ia-worker",
+      "to": "ia-guard",
+      "label": "pr-evidence create"
+    },
+    {
+      "from": "ia-worker",
+      "to": "ia-review",
+      "label": "turn end"
+    },
+    {
+      "from": "ia-review",
+      "to": "ia-draft",
+      "label": "no open PR"
+    },
+    {
+      "from": "ia-draft",
+      "to": "ia-github",
+      "label": "draft PR, guard comment"
+    },
+    {
+      "from": "ia-review",
+      "to": "ia-recovery",
+      "label": "no PR, turn incomplete"
+    },
+    {
+      "from": "ia-recovery",
+      "to": "ia-logs",
+      "label": "worker start and info events"
+    },
+    {
+      "from": "ia-report",
+      "to": "ia-logs",
+      "label": "read only"
+    },
+    {
+      "from": "id-env",
+      "to": "id-accounts",
+      "label": "CLAUDE_*_EMAIL"
+    },
+    {
+      "from": "id-env",
+      "to": "id-vault",
+      "label": "alert env vars"
+    },
+    {
+      "from": "id-proxyenv",
+      "to": "id-caddy",
+      "label": "host suffix"
+    },
+    {
+      "from": "id-proxyenv",
+      "to": "id-triage",
+      "label": "container name"
+    },
+    {
+      "from": "pr-signal",
+      "to": "pr-store",
+      "label": "debounced refresh, push if changed",
+      "status": "added"
+    },
+    {
+      "from": "pr-ship",
+      "to": "pr-store",
+      "label": "ship state on card",
+      "status": "added"
+    },
+    {
+      "from": "history-snapshot",
+      "to": "history-view-cache",
+      "label": "reuse lines"
+    },
     {
       "from": "perm-claude",
       "to": "perm-questions",
@@ -680,36 +1357,185 @@
       "label": "save tool",
       "status": "added"
     },
-    {"from":"sch-tools","to":"sch-tier","label":"tier","status":"added"},
-    {"from":"sch-tier","to":"sch-agent","label":"provider, model, effort","status":"added"},
-    {"from":"sch-agent","to":"sch-pi","label":"free","status":"added"},
-    {"from":"sch-agent","to":"sch-claude","label":"paid","status":"added"},
-    {"from":"dg-gh","to":"dg-cli","label":"stars today","status":"added"},
-    {"from":"dg-ax","to":"dg-cli","label":"papers, upvotes","status":"added"},
-    {"from":"dg-tr","to":"dg-cli","label":"traffic","status":"added"},
-    {"from":"dg-cli","to":"dg-out","label":"max 16 KB","status":"added"},
-    {"from":"hl-runner","to":"hl-checks","label":"nightly full run","status":"added"},
-    {"from":"hl-runner","to":"hl-cam","label":"hourly and nightly probe","status":"added"},
-    {"from":"hl-cam","to":"camofox","label":"probe tab, restart on wedge","status":"added"},
-    {"from":"hl-runner","to":"hl-store","label":"append run record","status":"added"},
-    {"from":"hl-api","to":"hl-runner","label":"manual run, history","status":"added"},
-    {"from":"hl-api","to":"hl-panel","label":"JSON for panel","status":"added"},
-    {"from":"camofox-fb","to":"hl-cam","label":"reactive heal on wedged tab","status":"added"},
-{"from": "tg-index", "to": "tg-build", "label": "touches rows, prs", "status": "added"},
-{"from": "tg-build", "to": "tg-api", "label": "nodes, hubs, edges", "status": "added"},
-{"from": "tg-api", "to": "tg-page", "label": "JSON + graph_dirty", "status": "added"},
-{"from": "tg-core", "to": "tg-page", "label": "loader, styles", "status": "added"},
-    {"from":"sec-fix-btn","to":"sec-fix-api","label":"POST scan, kind, key","status":"added"},
-    {"from":"sec-fix-api","to":"sec-fix-prompt","label":"scan JSON and finding key","status":"added"},
-    {"from":"sec-fix-btn","to":"sec-fix-picker","label":"deep link fix_* params","status":"added"},
-    {"from":"sec-fix-picker","to":"sec-fix-api","label":"prompt","status":"added"},
-    {"from":"sec-fix-picker","to":"sec-fix-draft","label":"chosen thread","status":"added"},
-    {"from":"history-snapshot","to":"history-view-cache","label":"reuse lines"},
-    {"from":"vc-mic","to":"vc-route","label":"audio upload","status":"added"},
-    {"from":"vc-route","to":"vc-ffmpeg","label":"decode in memory","status":"added"},
-    {"from":"vc-ffmpeg","to":"vc-worker","label":"float samples","status":"added"},
-    {"from":"vc-worker","to":"vc-model","label":"recognize","status":"added"},
-    {"from":"vc-sw","to":"perm-questions","label":"answer with nonce","status":"added"},
+    {
+      "from": "sch-tools",
+      "to": "sch-tier",
+      "label": "tier",
+      "status": "added"
+    },
+    {
+      "from": "sch-tier",
+      "to": "sch-agent",
+      "label": "provider, model, effort",
+      "status": "added"
+    },
+    {
+      "from": "sch-agent",
+      "to": "sch-pi",
+      "label": "free",
+      "status": "added"
+    },
+    {
+      "from": "sch-agent",
+      "to": "sch-claude",
+      "label": "paid",
+      "status": "added"
+    },
+    {
+      "from": "dg-gh",
+      "to": "dg-cli",
+      "label": "stars today",
+      "status": "added"
+    },
+    {
+      "from": "dg-ax",
+      "to": "dg-cli",
+      "label": "papers, upvotes",
+      "status": "added"
+    },
+    {
+      "from": "dg-tr",
+      "to": "dg-cli",
+      "label": "traffic",
+      "status": "added"
+    },
+    {
+      "from": "dg-cli",
+      "to": "dg-out",
+      "label": "max 16 KB",
+      "status": "added"
+    },
+    {
+      "from": "hl-runner",
+      "to": "hl-checks",
+      "label": "nightly full run",
+      "status": "added"
+    },
+    {
+      "from": "hl-runner",
+      "to": "hl-cam",
+      "label": "hourly and nightly probe",
+      "status": "added"
+    },
+    {
+      "from": "hl-cam",
+      "to": "camofox",
+      "label": "probe tab, restart on wedge",
+      "status": "added"
+    },
+    {
+      "from": "hl-runner",
+      "to": "hl-store",
+      "label": "append run record",
+      "status": "added"
+    },
+    {
+      "from": "hl-api",
+      "to": "hl-runner",
+      "label": "manual run, history",
+      "status": "added"
+    },
+    {
+      "from": "hl-api",
+      "to": "hl-panel",
+      "label": "JSON for panel",
+      "status": "added"
+    },
+    {
+      "from": "camofox-fb",
+      "to": "hl-cam",
+      "label": "reactive heal on wedged tab",
+      "status": "added"
+    },
+    {
+      "from": "tg-index",
+      "to": "tg-build",
+      "label": "touches rows, prs",
+      "status": "added"
+    },
+    {
+      "from": "tg-build",
+      "to": "tg-api",
+      "label": "nodes, hubs, edges",
+      "status": "added"
+    },
+    {
+      "from": "tg-api",
+      "to": "tg-page",
+      "label": "JSON + graph_dirty",
+      "status": "added"
+    },
+    {
+      "from": "tg-core",
+      "to": "tg-page",
+      "label": "loader, styles",
+      "status": "added"
+    },
+    {
+      "from": "sec-fix-btn",
+      "to": "sec-fix-api",
+      "label": "POST scan, kind, key",
+      "status": "added"
+    },
+    {
+      "from": "sec-fix-api",
+      "to": "sec-fix-prompt",
+      "label": "scan JSON and finding key",
+      "status": "added"
+    },
+    {
+      "from": "sec-fix-btn",
+      "to": "sec-fix-picker",
+      "label": "deep link fix_* params",
+      "status": "added"
+    },
+    {
+      "from": "sec-fix-picker",
+      "to": "sec-fix-api",
+      "label": "prompt",
+      "status": "added"
+    },
+    {
+      "from": "sec-fix-picker",
+      "to": "sec-fix-draft",
+      "label": "chosen thread",
+      "status": "added"
+    },
+    {
+      "from": "history-snapshot",
+      "to": "history-view-cache",
+      "label": "reuse lines"
+    },
+    {
+      "from": "vc-mic",
+      "to": "vc-route",
+      "label": "audio upload",
+      "status": "added"
+    },
+    {
+      "from": "vc-route",
+      "to": "vc-ffmpeg",
+      "label": "decode in memory",
+      "status": "added"
+    },
+    {
+      "from": "vc-ffmpeg",
+      "to": "vc-worker",
+      "label": "float samples",
+      "status": "added"
+    },
+    {
+      "from": "vc-worker",
+      "to": "vc-model",
+      "label": "recognize",
+      "status": "added"
+    },
+    {
+      "from": "vc-sw",
+      "to": "perm-questions",
+      "label": "answer with nonce",
+      "status": "added"
+    },
     {
       "from": "eval-harbor",
       "to": "eval-runner",
@@ -734,9 +1560,43 @@
       "label": "verifies outputs",
       "status": "added"
     },
-    {"from": "ap-launcher", "to": "ap-pathsh", "label": "sources"},
-    {"from": "ap-launcher", "to": "ap-agent", "label": "inherited PATH"},
-    {"from": "ap-agent", "to": "ap-secret", "label": "bare name"},
-    {"from": "ap-doctor", "to": "ap-launcher", "label": "checks PATH"}
+    {
+      "from": "ap-launcher",
+      "to": "ap-pathsh",
+      "label": "sources"
+    },
+    {
+      "from": "ap-launcher",
+      "to": "ap-agent",
+      "label": "inherited PATH"
+    },
+    {
+      "from": "ap-agent",
+      "to": "ap-secret",
+      "label": "bare name"
+    },
+    {
+      "from": "ap-doctor",
+      "to": "ap-launcher",
+      "label": "checks PATH"
+    },
+    {
+      "from": "af-page",
+      "to": "af-route",
+      "label": "fetch JSON, actions",
+      "status": "added"
+    },
+    {
+      "from": "af-route",
+      "to": "af-relay",
+      "label": "ssh verb",
+      "status": "added"
+    },
+    {
+      "from": "af-relay",
+      "to": "af-web",
+      "label": "HTTP loopback",
+      "status": "added"
+    }
   ]
 }
