@@ -1,0 +1,482 @@
+/* Autofund page. Console tokens, calm panels; the money figures carry the weight, color only marks state. */
+body.af {
+  --card: var(--s1);
+  --tap: 2.75rem;
+}
+@media (prefers-color-scheme: dark) {
+  body.af {
+    --card: var(--s1);
+  }
+}
+
+/* ---------- sticky header ---------- */
+.af-head {
+  display: grid;
+  gap: var(--sp-2);
+  padding-top: max(var(--sp-2), env(safe-area-inset-top));
+  padding-bottom: var(--sp-3);
+}
+.af-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+}
+.af-bar h1 {
+  flex: 1 1 0;
+  flex-basis: 0;
+  order: 0;
+  min-width: 0;
+}
+.af-vitals {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: var(--sp-1) var(--sp-3);
+  align-items: end;
+}
+.af-lbl {
+  display: block;
+  color: var(--t2);
+  font: var(--fw-med) var(--f-xs);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.af-fig {
+  display: block;
+  font: var(--fw-semi) 1.75rem / 1.1 var(--font-ui);
+  letter-spacing: -0.025em;
+  font-variant-numeric: tabular-nums;
+}
+.af-run .af-fig {
+  font-size: 1.125rem;
+  text-align: right;
+}
+.af-run .af-lbl {
+  text-align: right;
+}
+.af-sub {
+  display: block;
+  color: var(--t2);
+  font: var(--fw-reg) var(--f-sm);
+  font-variant-numeric: tabular-nums;
+}
+.af-pills {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-2);
+}
+
+/* ---------- pills, tags ---------- */
+.af-pill,
+.af-tag {
+  display: inline-flex;
+  align-items: center;
+  min-height: 1.5rem;
+  padding: 0 var(--sp-2);
+  border-radius: var(--r-full);
+  background: var(--s3);
+  color: var(--t1);
+  font: var(--fw-med) var(--f-xs);
+  white-space: nowrap;
+}
+.af-tag {
+  background: transparent;
+  box-shadow: inset 0 0 0 1px var(--edge-strong);
+  color: var(--t2);
+}
+.af-pill[data-tone="ok"] {
+  background: color-mix(in srgb, var(--ok) 14%, transparent);
+  color: var(--ok);
+}
+.af-pill[data-tone="warn"] {
+  background: var(--warn-tint);
+  color: var(--warn);
+}
+.af-pill[data-tone="bad"] {
+  background: var(--bad-tint);
+  color: var(--bad);
+}
+.af-pill[data-tone="accent"] {
+  background: var(--accent-tint);
+  color: var(--accent);
+}
+.af-pill[hidden] {
+  display: none;
+}
+#p-badge {
+  white-space: normal;
+  text-align: left;
+  padding-block: 2px;
+}
+
+/* ---------- layout ---------- */
+#afm {
+  background: none;
+  border-radius: 0;
+  overflow: visible;
+  width: min(72rem, 100%);
+  margin: 0 auto;
+  padding: var(--sp-3) max(var(--sp-4), env(safe-area-inset-left))
+    calc(var(--sp-8) + env(safe-area-inset-bottom));
+  display: grid;
+  gap: var(--sp-3);
+  align-content: start;
+  min-width: 0;
+}
+#content {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--sp-3);
+  align-items: start;
+}
+@media (min-width: 52rem) {
+  #content {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--sp-4);
+  }
+  #content > .af-wide {
+    grid-column: 1 / -1;
+  }
+  .af-head {
+    padding-inline: max(var(--sp-5), env(safe-area-inset-left));
+  }
+  .af-vitals {
+    grid-template-columns: auto auto 1fr;
+    align-items: end;
+    gap: var(--sp-6);
+  }
+  .af-pills {
+    grid-column: auto;
+    justify-content: flex-end;
+  }
+  .af-run .af-fig,
+  .af-run .af-lbl {
+    text-align: left;
+  }
+}
+#afm .panel {
+  min-width: 0;
+  padding: var(--sp-4);
+}
+#afm .panel .head {
+  align-items: center;
+}
+.af-h3 {
+  margin-top: var(--sp-4);
+  margin-bottom: var(--sp-2);
+  color: var(--t2);
+  font: var(--fw-med) var(--f-xs);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.af-meta,
+.af-foot {
+  margin: 0;
+  color: var(--t3);
+  font: var(--fw-reg) var(--f-xs);
+}
+.af-foot {
+  margin-top: var(--sp-3);
+}
+.af-note {
+  color: var(--t2);
+  font: var(--fw-reg) var(--f-sm);
+  margin-bottom: var(--sp-3);
+}
+.af-count {
+  color: var(--t3);
+  font: var(--fw-reg) var(--f-sm);
+}
+.af-banner,
+.af-card.af-state {
+  padding: var(--sp-3) var(--sp-4);
+  border-radius: var(--r-md);
+  font: var(--fw-med) var(--f-sm);
+}
+.af-banner[data-tone="warn"] {
+  background: var(--warn-tint);
+  color: var(--warn);
+}
+.af-banner[data-tone="bad"] {
+  background: var(--bad-tint);
+  color: var(--bad);
+}
+.af-state {
+  display: grid;
+  gap: var(--sp-3);
+  justify-items: start;
+  background: var(--card);
+  box-shadow: var(--shadow-card);
+}
+.af-state h2 {
+  font: var(--fw-semi) var(--f-lg);
+}
+
+/* ---------- projection ---------- */
+.af-range {
+  display: flex;
+  width: 100%;
+  margin-bottom: var(--sp-3);
+}
+.af-range button {
+  flex: 1;
+  min-height: var(--tap);
+}
+.af-chart {
+  position: relative;
+  height: 200px;
+}
+.af-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(7rem, 1fr));
+  gap: var(--sp-2);
+  margin: var(--sp-3) 0 0;
+}
+.af-grid > div {
+  padding: var(--sp-2) var(--sp-3);
+  border-radius: var(--r-sm);
+  background: var(--s2);
+}
+.af-grid dt {
+  color: var(--t2);
+  font: var(--fw-med) var(--f-xs);
+}
+.af-grid dd {
+  margin: 0;
+  font: var(--fw-semi) var(--f-md);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---------- rows and cards ---------- */
+.af-rows,
+.af-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.af-rows li {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: var(--sp-3);
+  padding: var(--sp-2) 0;
+  border-bottom: 1px solid var(--edge);
+  font: var(--fw-reg) var(--f-md);
+}
+.af-rows li:last-child {
+  border-bottom: 0;
+}
+.af-rows small {
+  color: var(--t3);
+  font: var(--fw-reg) var(--f-xs);
+}
+.af-num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.af-num.pos {
+  color: var(--ok);
+}
+.af-num.neg {
+  color: var(--bad);
+}
+.af-list {
+  display: grid;
+  gap: var(--sp-2);
+}
+.af-list .af-card {
+  display: grid;
+  gap: var(--sp-1);
+  padding: var(--sp-3);
+  border-radius: var(--r-md);
+  background: var(--s2);
+  font: var(--fw-reg) var(--f-md);
+  overflow-wrap: anywhere;
+}
+.af-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-2);
+}
+.af-line b {
+  font-weight: var(--fw-semi);
+}
+.af-card details summary {
+  min-height: var(--tap);
+  display: flex;
+  align-items: center;
+  color: var(--accent);
+  font: var(--fw-med) var(--f-sm);
+  cursor: pointer;
+}
+.af-card pre {
+  margin: 0 0 var(--sp-2);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font: var(--fm-sm);
+  color: var(--t2);
+}
+.af-actions {
+  display: flex;
+  gap: var(--sp-2);
+  margin-top: var(--sp-2);
+}
+.af-actions .btn {
+  flex: 1;
+}
+.af-mono {
+  font: var(--fm-sm);
+  overflow-wrap: anywhere;
+  word-break: break-all;
+}
+
+/* ---------- usage meters ---------- */
+.af-meters {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--sp-3);
+  margin-top: var(--sp-2);
+}
+.af-meter-head {
+  display: flex;
+  justify-content: space-between;
+  color: var(--t2);
+  font: var(--fw-med) var(--f-xs);
+  font-variant-numeric: tabular-nums;
+}
+.af-meter-head b {
+  color: var(--t1);
+  font-weight: var(--fw-semi);
+}
+.af-meter[data-hot="true"] .af-meter-head b {
+  color: var(--warn);
+}
+.af-track {
+  height: 8px;
+  margin-top: var(--sp-1);
+  border-radius: var(--r-full);
+  background: var(--s3);
+  overflow: hidden;
+}
+.af-track i {
+  display: block;
+  height: 100%;
+  border-radius: var(--r-full);
+  background: var(--accent);
+}
+.af-meter[data-hot="true"] .af-track i {
+  background: var(--viz-3);
+}
+
+/* ---------- forms ---------- */
+.af-form {
+  display: grid;
+  gap: var(--sp-3);
+  margin-top: var(--sp-2);
+  padding-top: var(--sp-1);
+  border-top: 1px solid var(--edge);
+}
+.af-form .af-h3 {
+  margin: var(--sp-3) 0 0;
+}
+.af-field {
+  display: grid;
+  gap: var(--sp-1);
+  color: var(--t2);
+  font: var(--fw-med) var(--f-sm);
+}
+.af-field .input {
+  min-height: var(--tap);
+  width: 100%;
+  color: var(--t1);
+  font-size: 1rem;
+}
+.af-form .btn,
+.af-state .btn,
+#d-more,
+#k-btn,
+#ack,
+.af-copy .btn,
+.af-bar .btn,
+dialog .btn,
+.af-actions .btn {
+  min-height: var(--tap);
+}
+.af-err {
+  margin: 0;
+  color: var(--bad);
+  font: var(--fw-med) var(--f-sm);
+}
+.btn.danger-fill {
+  background: var(--stop);
+  color: var(--on-stop);
+}
+.btn.danger-fill:hover:not(:disabled) {
+  background: var(--stop-hover);
+}
+
+/* ---------- deposit and kill ---------- */
+.af-qr {
+  display: block;
+  width: 10rem;
+  height: 10rem;
+  margin: 0 auto var(--sp-3);
+  padding: var(--sp-2);
+  border-radius: var(--r-md);
+  background: #fff;
+  image-rendering: pixelated;
+}
+.af-copy {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: var(--sp-2) var(--sp-3);
+  border-radius: var(--r-sm);
+  background: var(--s2);
+}
+.af-copy code {
+  flex: 1;
+  min-width: 0;
+}
+.af-warn {
+  margin: var(--sp-3) 0 0;
+  padding: var(--sp-2) var(--sp-3);
+  border-radius: var(--r-sm);
+  background: var(--warn-tint);
+  color: var(--warn);
+  font: var(--fw-med) var(--f-sm);
+}
+.af-danger {
+  box-shadow:
+    inset 0 0 0 1px var(--bad-tint),
+    var(--shadow-card);
+}
+#k-btn {
+  width: 100%;
+  margin-top: var(--sp-3);
+}
+#d-more {
+  width: 100%;
+  margin-top: var(--sp-3);
+}
+#toast {
+  max-width: min(24rem, calc(100vw - var(--sp-6)));
+}
+#toast[data-tone="ok"] {
+  color: var(--ok);
+}
+#toast[data-tone="bad"] {
+  color: var(--bad);
+}
+dialog .af-actions {
+  margin-top: var(--sp-4);
+}
+dialog .af-err {
+  margin-top: var(--sp-3);
+}
+@media (prefers-reduced-motion: reduce) {
+  dialog[open] {
+    animation: none;
+  }
+}
