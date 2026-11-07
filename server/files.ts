@@ -50,7 +50,7 @@ export function sensitive(file: string): boolean {
     return true;
   const name = parts.at(-1) || "";
   if (
-    /^(?:\.env(?:\..*)?|\.npmrc|\.netrc|\.pgpass|\.pypirc|\.git-credentials|\.?credentials(?:\..*)?|\.claude\.json|auth\.json|password|secret|id_(?:rsa|dsa|ecdsa|ed25519)(?:\..*)?|\.\w*_history)$/.test(
+    /^(?:\.env(?:\..*)?|\.npmrc|\.netrc|\.pgpass|\.pypirc|\.git-credentials|\.?credentials(?:\..*)?|\.claude\.json|\.mcp\.json|mcp-auth\.json|auth\.json|password|secret|id_(?:rsa|dsa|ecdsa|ed25519)(?:\..*)?|\.\w*_history)$/.test(
       name,
     )
   )
@@ -540,7 +540,7 @@ async function entryKind(entry: fs.Dirent, child: string, root: string) {
     : entry.isFile()
       ? "file"
       : undefined;
-  // Symlinks (CLAUDE.md, AGENTS.md, .mcp.json in ~/repos) list as their target kind; opening still enforces realpath scope.
+  // Symlinks (CLAUDE.md and AGENTS.md in ~/repos) list as their target kind; opening still enforces realpath scope.
   if (!kind && entry.isSymbolicLink()) {
     const real = await realpath(child).catch(() => undefined);
     if (real && reachable(root, real)) {

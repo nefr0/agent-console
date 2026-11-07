@@ -348,7 +348,9 @@ try {
     200,
     "outside-path link resolving inside cwd is viewable",
   );
+  const mcpCredentials = [".mcp.json", "mcp-auth.json", ".MCP.JSON", "MCP-AUTH.JSON"];
   for (const name of [
+    ...mcpCredentials,
     ".env",
     ".env.local",
     "credentials.json",
@@ -362,6 +364,15 @@ try {
     put(name, "private fixture");
     assert.equal((await file(name)).status, 403, `refuse ${name}`);
   }
+  for (const [index, name] of mcpCredentials.entries()) {
+    const alias = `project-config-${index}.json`;
+    fs.symlinkSync(path.join(cwd, name), path.join(cwd, alias));
+    assert.equal((await file(alias)).status, 403, `refuse symlink to ${name}`);
+  }
+  put("project.json", '{"name":"harmless-project"}');
+  const project = await file("project.json");
+  assert.equal(project.status, 200, "ordinary project JSON remains readable");
+  assert.equal((await project.json()).content, '{"name":"harmless-project"}');
   fs.symlinkSync(path.join(cwd, ".env"), path.join(cwd, "friendly.txt"));
   assert.equal((await file("friendly.txt")).status, 403, "credential symlink is refused");
   fs.mkdirSync(path.join(cwd, ".git"));
@@ -502,6 +513,8 @@ try {
   );
   assert.ok(listing.entries.some((e: any) => e.name === "hello.ts" && e.kind === "file"));
   for (const excluded of [
+    ...mcpCredentials,
+    ...mcpCredentials.map((_, index) => `project-config-${index}.json`),
     ".git",
     ".env",
     ".env.local",
