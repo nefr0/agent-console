@@ -20,27 +20,30 @@ fs.writeFileSync(
   path.join(fixtureBin, "node"),
   `#!${process.execPath}
 const fs = require("node:fs");
-const cp = require("node:child_process");
+const path = require("node:path");
 fs.appendFileSync(process.env.TEST_CALLS, JSON.stringify({ pid:process.pid, args:process.argv.slice(2) }) + "\\n");
 if (process.argv[2] === "scripts/idle-restart.mjs") {
-  // Deliberately inherit every open descriptor: detached descendants must not retain the lock.
-  const descriptors = fs.readdirSync("/proc/self/fd").map(Number);
-  const stdio = Array.from({ length: Math.max(...descriptors) + 1 }, (_, fd) => {
-    try { fs.fstatSync(fd); return fd; } catch { return "ignore"; }
-  });
-  const child = cp.spawn(process.execPath, ["-e", "setInterval(() => {}, 1000)"], { detached: true, stdio });
-  fs.appendFileSync(process.env.TEST_CALLS, JSON.stringify({ pid:child.pid, args:["descendant"] }) + "\\n");
-}
-setInterval(() => {}, 1000);
+  // run the real watcher in this process (the wrapper names the claim file after this pid)
+  const script = ${JSON.stringify(path.join(root, "scripts/idle-restart.mjs"))};
+  process.argv[1] = script;
+  import(script).then(() => {});
+} else setInterval(() => {}, 1000);
 `,
   { mode: 0o700 },
 );
+// a release build that never ends: both watchers stay in the building phase
+fs.writeFileSync(path.join(scratch, "release.mjs"), "setInterval(() => {}, 1000);\n");
 const env = {
   ...process.env,
   HOME: scratch,
   PATH: `${fixtureBin}:${process.env.PATH}`,
   AGENT_CONSOLE_RUN: runtime,
   TEST_CALLS: calls,
+  AGENT_CONSOLE_RELEASE_SCRIPT: path.join(scratch, "release.mjs"),
+  AGENT_CONSOLE_HOME: path.join(scratch, "home"),
+  AGENT_CONSOLE_REPO: scratch,
+  AGENT_CONSOLE_DATA: path.join(scratch, "data"),
+  AGENT_CONSOLE_PASSWORD: "singleton-test",
 };
 const children: ChildProcess[] = [];
 const recorded = () =>
@@ -78,32 +81,26 @@ try {
     1,
     "Concurrent supervisors must launch only one server",
   );
-  for (let i = 0; i < 2; i++) execFileSync(cli, ["restart-when-idle"], { env, stdio: "ignore" });
-  await eventually(() => recorded().some((call) => call.args[0] === "scripts/idle-restart.mjs"));
-  await new Promise((resolve) => setTimeout(resolve, 150));
-  assert.equal(
-    recorded().filter((call) => call.args[0] === "scripts/idle-restart.mjs").length,
-    1,
-    "Concurrent restart requests must share one watcher",
-  );
-  await eventually(() => recorded().some((call) => call.args[0] === "descendant"));
-  const firstWatcher = recorded().find((call) => call.args[0] === "scripts/idle-restart.mjs");
-  const descendant = recorded().find((call) => call.args[0] === "descendant");
-  process.kill(firstWatcher.pid, "SIGTERM");
-  await eventually(() => {
+  const watchers = () => recorded().filter((call) => call.args[0] === "scripts/idle-restart.mjs");
+  const alive = (pid: number) => {
     try {
-      execFileSync("flock", ["-n", path.join(runtime, "idle-restart.lock"), "true"], {
-        stdio: "ignore",
-      });
+      process.kill(pid, 0);
       return true;
     } catch {
       return false;
     }
-  });
-  process.kill(descendant.pid, 0);
+  };
   execFileSync(cli, ["restart-when-idle"], { env, stdio: "ignore" });
-  await eventually(
-    () => recorded().filter((call) => call.args[0] === "scripts/idle-restart.mjs").length === 2,
+  const first = watchers()[0].pid;
+  const second = execFileSync(cli, ["restart-when-idle"], { env, encoding: "utf8" });
+  assert.match(second, new RegExp(`superseded pid ${first}`));
+  await eventually(() => !alive(first));
+  const live = watchers().filter((call) => alive(call.pid));
+  assert.equal(live.length, 1, "Exactly one restart watcher must stay alive");
+  assert.match(
+    fs.readFileSync(path.join(runtime, "idle-restart.log"), "utf8"),
+    /superseded by pid/,
+    "The first watcher must log that it was superseded",
   );
   const originalSupervisor = Number(fs.readFileSync(path.join(runtime, "supervisor"), "utf8"));
   process.kill(originalSupervisor, "SIGTERM");
