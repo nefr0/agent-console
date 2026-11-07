@@ -160,6 +160,16 @@ try {
   const report = await doctor.inspect();
   assert.equal(report.status, "issues");
   assert.equal(report.checks.find((c) => c.id === "headroom")?.repairable, false);
+  assert.equal(report.checks.find((c) => c.id === "agent-tools")?.status, "ok");
+  const lacking = await createDoctor(threads, {
+    proxy,
+    executable: (name: string) => name !== "secret",
+    accountReady: () => true,
+    upstream: async () => "reachable",
+  }).inspect();
+  const toolsCheck = lacking.checks.find((c) => c.id === "agent-tools");
+  assert.equal(toolsCheck?.status, "warning");
+  assert.match(toolsCheck?.detail ?? "", /secret/);
   const probeCount = probes;
   const [first, second] = await Promise.all([doctor.repair(), doctor.repair()]);
   assert.deepEqual(first, second);

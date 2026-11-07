@@ -235,6 +235,22 @@ function voiceCheck(): DoctorCheck {
   };
 }
 
+const AGENT_TOOLS = ["console-tool", "brain", "waitfor", "secret"];
+
+// Agents find these helpers through PATH; a server launched outside a login shell may lack brain/bin and dotfiles/bin.
+function agentToolsCheck(ctx: DoctorContext): DoctorCheck {
+  const missing = AGENT_TOOLS.filter((name) => !ctx.hasExecutable(name));
+  return {
+    id: "agent-tools",
+    label: "Agent tools on PATH",
+    status: missing.length ? "warning" : "ok",
+    detail: missing.length
+      ? `Not on the server PATH: ${missing.join(", ")}. Check shell/path.sh in dotfiles and the launcher PATH.`
+      : `${AGENT_TOOLS.join(", ")} found on PATH.`,
+    repairable: false,
+  };
+}
+
 async function inspectDoctor(ctx: DoctorContext) {
   const [state, network] = await Promise.all([ctx.proxy.probe(), ctx.upstream()]);
   const routing = ctx.threads.routingHealth();
@@ -243,6 +259,7 @@ async function inspectDoctor(ctx: DoctorContext) {
     ...accountChecks(ctx),
     headroomCheck(state),
     ...routingChecks(routing),
+    agentToolsCheck(ctx),
     voiceCheck(),
     networkCheck(network),
   ];
