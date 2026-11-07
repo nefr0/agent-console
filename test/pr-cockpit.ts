@@ -91,11 +91,27 @@ assert.equal(card.unresolvedThreads, 2);
 assert.equal(card.commentCount, 1, "marker and Copilot comments are noise");
 assert.equal(card.reviewCount, 2, "empty/Copilot reviews dropped, changes_requested kept");
 assert.deepEqual(card.images, [
-  "https://example.test/assets/one.png?a=1&b=2",
-  "https://example.test/two.png",
+  { label: "x", url: "https://example.test/assets/one.png?a=1&b=2" },
+  { label: "y", url: "https://example.test/two.png" },
 ]);
 assert.deepEqual(card.deploy, { deployed: "abc123", text: "live" });
 assert.deepEqual(extractImages(null), []);
+assert.deepEqual(
+  extractImages(
+    '<img src="https://e.test/a.png" alt=" Login &amp; &quot;home&quot; &#39;x&#39; &lt;b&gt; ">',
+  ),
+  [{ label: `Login & "home" 'x' <b>`, url: "https://e.test/a.png" }],
+);
+assert.deepEqual(
+  extractImages(
+    '<img src="https://e.test/a.png" alt="Image"><img src="https://e.test/b.png" alt=""><img src="https://e.test/c.png">',
+  ),
+  [
+    { label: "Evidence 1", url: "https://e.test/a.png" },
+    { label: "Evidence 2", url: "https://e.test/b.png" },
+    { label: "Evidence 3", url: "https://e.test/c.png" },
+  ],
+);
 
 // store: hash-dedup of onChange
 const store = createPrStore(deps, { pendingPollMs: 30_000, idlePollMs: 600_000 });

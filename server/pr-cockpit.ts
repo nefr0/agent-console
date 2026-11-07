@@ -15,13 +15,19 @@
 //   checkCounts   {total, passed, failed, pending, skipped}
 //   unresolvedThreads  unresolved review thread count
 //   commentCount, reviewCount  noise-filtered (agent-console markers, Copilot, empty reviews)
-//   images        evidence image URLs from the PR body <img src>
+//   images        {label, url}[] evidence links from the PR body <img>: label = alt text
+//                 (or "Evidence N" when alt is empty/generic), url = https src, deduped
 //   deploy        {deployed: sha|null, text: string|null} from pr-ship state, or null
 import { execFile } from "node:child_process";
 import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { childEnv } from "./providers/env.ts";
+
+export interface PrEvidence {
+  label: string;
+  url: string;
+}
 
 export interface PrCheck {
   name: string;
@@ -48,7 +54,7 @@ export interface PrCard {
   unresolvedThreads: number;
   commentCount: number;
   reviewCount: number;
-  images: string[];
+  images: PrEvidence[];
   deploy: { deployed: string | null; text: string | null } | null;
 }
 export interface PrRef {
@@ -262,13 +268,23 @@ const countReviews = (nodes: any[]) =>
   nodes.filter((node) => !isNoise(node) && (node.body || node.state === "CHANGES_REQUESTED"))
     .length;
 
-export function extractImages(html: string | null | undefined): string[] {
-  const urls: string[] = [];
-  for (const match of String(html ?? "").matchAll(/<img\b[^>]*?\bsrc=["']([^"']+)["']/gi)) {
-    const url = match[1].replace(/&amp;/g, "&");
-    if (/^https:\/\//.test(url) && !urls.includes(url)) urls.push(url);
+const ENTITIES: Record<string, string> = { amp: "&", quot: '"', lt: "<", gt: ">", "#39": "'" };
+const decodeEntities = (text: string) =>
+  text.replace(/&(amp|quot|lt|gt|#39);/g, (_all, name: string) => ENTITIES[name]);
+
+export function extractImages(html: string | null | undefined): PrEvidence[] {
+  const items: PrEvidence[] = [];
+  for (const match of String(html ?? "").matchAll(/<img\b[^>]*>/gi)) {
+    const tag = match[0];
+    const src = /\bsrc=["']([^"']+)["']/i.exec(tag)?.[1];
+    if (!src) continue;
+    const url = decodeEntities(src);
+    if (!/^https:\/\//.test(url) || items.some((item) => item.url === url)) continue;
+    const alt = decodeEntities(/\balt=["']([^"']*)["']/i.exec(tag)?.[1] ?? "").trim();
+    const generic = !alt || alt.toLowerCase() === "image";
+    items.push({ label: generic ? `Evidence ${items.length + 1}` : alt, url });
   }
-  return urls;
+  return items;
 }
 
 const idFromUrl = (url: string | null, pattern: RegExp) => pattern.exec(url ?? "")?.[1] ?? null;

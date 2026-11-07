@@ -77,7 +77,10 @@ const card = (over: object = {}) => ({
   unresolvedThreads: 1,
   commentCount: 3,
   reviewCount: 1,
-  images: ["http://127.0.0.1/evidence-a.png", "http://127.0.0.1/evidence-b.png"],
+  images: [
+    { label: "Login screen", url: "http://127.0.0.1/evidence-a.png" },
+    { label: "Evidence 2", url: "http://127.0.0.1/evidence-b.png" },
+  ],
   deploy: { deployed: "abc1234", text: "Deployed abc1234 to production" },
   ...over,
 });
@@ -206,7 +209,7 @@ async function shoot(
   await page.screenshot({ path: path.join(shots, `${name}-strip.png`) });
   await page.locator("#pr-strip .pr-chip").first().click();
   await page.locator("#pr-sheet[open]").waitFor();
-  await page.locator("#pr-sheet .pr-image img").first().waitFor();
+  await page.locator("#pr-sheet .pr-evidence").first().waitFor();
   await page.locator("#pr-sheet .pr-check .btn", { hasText: "Log" }).click();
   await page.locator("#pr-sheet .pr-log").waitFor({ state: "visible" });
   await page.waitForTimeout(250);
@@ -356,8 +359,13 @@ try {
     (await page.locator("#pr-sheet .pr-deploy").textContent()) || "",
     /Deployed abc1234/,
   );
-  assert.equal(await page.locator("#pr-sheet .pr-image").count(), 2, "evidence grid");
-  assert.equal(await page.locator("#pr-sheet .pr-image").first().getAttribute("target"), "_blank");
+  assert.equal(await page.locator("#pr-sheet .pr-evidence").count(), 2, "evidence links");
+  assert.equal(await page.locator("#pr-sheet .pr-evidence").first().textContent(), "Login screen");
+  assert.equal(
+    await page.locator("#pr-sheet .pr-evidence").first().getAttribute("target"),
+    "_blank",
+  );
+  assert.equal(await page.locator("#pr-sheet img").count(), 0, "no evidence thumbnails");
 
   await page.locator("#pr-sheet .btn", { hasText: "Re-run" }).click();
   await page.waitForFunction(() => document.querySelector("#pr-sheet")); // let the request settle
