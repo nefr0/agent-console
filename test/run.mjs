@@ -21,6 +21,7 @@ if (process.env.TEST_SHARD) {
   if (!Number.isSafeInteger(index) || !Number.isSafeInteger(total) || index < 1 || index > total)
     throw new Error("TEST_SHARD must be an index/total pair with 1 <= index <= total.");
   console.log(`Test suite files: ${JSON.stringify(files)}`);
+  console.log(`Test run attempt: ${process.env.GITHUB_RUN_ATTEMPT || 1}`);
   console.log(`Test run started: ${Date.now() - performance.now()}`);
   const count = files.length;
   files = planShards(files, weights, total)[index - 1];

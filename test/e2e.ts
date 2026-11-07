@@ -152,7 +152,7 @@ if (hello.providers.some((p: any) => p.id === "mock")) {
   ws.send(JSON.stringify({ t: "send", thread: id, text: "hello there" }));
   check(
     "mock turn finishes",
-    !!(await waitFor((m) => m.t === "event" && m.event.type === "result", 5000)),
+    !!(await waitFor((m) => m.t === "event" && m.thread === id && m.event.type === "result", 5000)),
   );
   const ev = events(id);
   check(
@@ -167,15 +167,16 @@ if (hello.providers.some((p: any) => p.id === "mock")) {
 
   clear();
   ws.send(JSON.stringify({ t: "send", thread: id, text: "tool please" }));
-  await waitFor((m) => m.t === "event" && m.event.type === "result", 5000);
+  await waitFor((m) => m.t === "event" && m.thread === id && m.event.type === "result", 5000);
   const ev2 = events(id);
+  // checkpoint events trail their result by ~300 ms and can leak into this window; compare only the turn's own types
+  const turnTypes = ev2
+    .map((e) => e.type)
+    .filter((t) => ["assistant", "user", "result"].includes(t));
   check(
     "mock: tool_use then tool_result then result",
-    ["assistant", "user", "assistant", "result"].every(
-      (t, i) =>
-        ev2.filter((e) => !["system", "stream_event", "user_input"].includes(e.type))[i]?.type ===
-        t,
-    ),
+    ["assistant", "user", "assistant", "result"].every((t, i) => turnTypes[i] === t),
+    `observed ${ev2.map((e) => e.type).join(",")}`,
   );
 
   const lab = await waitFor((m) => m.t === "event" && m.event.type === "tool_label", 3000);
@@ -228,7 +229,7 @@ if (hello.providers.some((p: any) => p.id === "mock")) {
   ws.send(JSON.stringify({ t: "send", thread: id, text: "after stop" }));
   check(
     "thread works again after abort",
-    !!(await waitFor((m) => m.t === "event" && m.event.type === "result", 5000)),
+    !!(await waitFor((m) => m.t === "event" && m.thread === id && m.event.type === "result", 5000)),
   );
 
   clear();

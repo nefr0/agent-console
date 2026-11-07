@@ -27,10 +27,18 @@ assert.deepEqual(
 );
 const starts = logs.map((log) => Number(log.match(/^Test run started: ([\d.]+)$/m)?.[1]));
 const durations = logs.map((log) => Number(log.match(/^ℹ duration_ms ([\d.]+)$/m)?.[1]));
+const attempts = logs.map((log) => Number(log.match(/^Test run attempt: (\d+)$/m)?.[1] ?? 1));
 assert.ok([...starts, ...durations].every((value) => Number.isFinite(value) && value > 0));
-// Include the start skew between runners in the whole-suite wall time.
-const wall =
-  Math.max(...starts.map((start, index) => start + durations[index])) - Math.min(...starts);
+// A partial rerun mixes logs from several attempts: add start skew only between logs of one attempt.
+const wall = Math.max(
+  ...[...new Set(attempts)].map((attempt) => {
+    const same = logs.map((_, index) => index).filter((index) => attempts[index] === attempt);
+    return (
+      Math.max(...same.map((index) => starts[index] + durations[index])) -
+      Math.min(...same.map((index) => starts[index]))
+    );
+  }),
+);
 const combined = path.join(directory, "combined.log");
 fs.writeFileSync(
   combined,

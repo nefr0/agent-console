@@ -120,6 +120,12 @@ try {
   await settle(async () => ((await (await api(base)).json()) as any[]).length >= 2, "checkpoint 2");
 
   const logOf = (id: string) => path.join(directory, "data", "logs", `${id}.jsonl`);
+  const checkpointLines = () =>
+    fs.readFileSync(logOf(alpha), "utf8").split('"type":"checkpoint"').length - 1;
+  await settle(async () => {
+    const listed = (await (await api(base)).json()) as any[];
+    return listed.length >= 2 && checkpointLines() === listed.length;
+  }, "checkpoint lines in log");
   const sourceBefore = fs.readFileSync(logOf(alpha), "utf8");
   const isCheckpoint = (line: string, seq: number) => {
     const event = JSON.parse(line);

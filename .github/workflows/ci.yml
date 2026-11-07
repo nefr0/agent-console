@@ -176,6 +176,7 @@ jobs:
         if: always()
         with:
           name: test-log-${{ strategy.job-index }}
+          overwrite: true
           path: ${{ runner.temp }}/test.log
       - name: Runner usage
         if: always()

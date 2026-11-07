@@ -310,12 +310,16 @@ export class ShipJobs {
     const last = outputLines(text).pop();
     const line = last ? clip(last) : undefined;
     const alive = record.unit ? unitActive(record.unit) : jobAlive(record.pid, record.outFile);
-    if (!alive)
+    if (!alive) {
+      // The wrapper may have written its exit line and exited between the first read and the liveness probe.
+      const settled = readOutcome(readTail(record.outFile), record.startedAt);
+      if (settled) return this.finish(record, settled);
       return this.finish(record, {
         state: "failed",
         startedAt: record.startedAt,
         line: line ?? "pr-ship stopped without reporting an exit code.",
       });
+    }
     if (this.progress.get(record.key) === line) return;
     this.progress.set(record.key, line);
     this.options.onUpdate(record, this.current(record)!);
