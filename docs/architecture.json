@@ -1005,8 +1005,8 @@
         {
           "id": "af-page",
           "label": "Autofund page",
-          "tech": "public/autofund.html/js/css, Chart.js",
-          "desc": "Balance, projection bands, agents, review queue, alerts, deposit, kill request; confirm before writes",
+          "tech": "public/autofund.*",
+          "desc": "Balance, projections, agents, review queue, alerts, deposit, kill",
           "icon": "layout-dashboard",
           "color": "teal",
           "status": "added"
@@ -1015,7 +1015,7 @@
           "id": "af-route",
           "label": "Autofund routes",
           "tech": "server/autofund.ts",
-          "desc": "GET /api/autofund (30 s cache, stale fallback), POST /api/autofund/action; session + same-origin, verb allowlist",
+          "desc": "Cached GET, POST actions; session, same-origin, verb allowlist",
           "icon": "route",
           "color": "blue",
           "status": "added"
