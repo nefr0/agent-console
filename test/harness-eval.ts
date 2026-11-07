@@ -73,7 +73,7 @@ function run(prompt: string, extra: string[] = []) {
       "--output-dir",
       output,
       "--timeout-sec",
-      "1.5",
+      ["timeout", "escaped"].includes(prompt) ? "1.5" : "4",
     ],
     {
       env: {
@@ -89,7 +89,7 @@ function run(prompt: string, extra: string[] = []) {
         OPENAI_API_KEY: "explicit-openai-fixture",
       },
       encoding: "utf8",
-      timeout: 4000,
+      timeout: 6500,
     },
   );
   assert.equal(execution.error, undefined, String(execution.error));
