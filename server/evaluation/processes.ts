@@ -25,13 +25,28 @@ export function guardProcesses(onLimit: () => void, maxBytes: number) {
   }) as typeof childProcess.spawn;
   syncBuiltinESMExports();
   return async () => {
-    for (const child of children) {
-      try {
-        if (child.pid) process.kill(-child.pid, "SIGKILL");
-      } catch {}
+    let deadline: NodeJS.Timeout | undefined;
+    try {
+      for (const child of children) {
+        try {
+          if (child.pid) process.kill(-child.pid, "SIGKILL");
+        } catch {}
+      }
+      await Promise.race([
+        Promise.all(closed),
+        new Promise<void>((resolve) => {
+          deadline = setTimeout(resolve, 500);
+        }),
+      ]);
+    } finally {
+      clearTimeout(deadline);
+      for (const child of children) {
+        child.stdin?.destroy();
+        child.stdout?.destroy();
+        child.stderr?.destroy();
+      }
+      childProcess.spawn = original;
+      syncBuiltinESMExports();
     }
-    await Promise.all(closed);
-    childProcess.spawn = original;
-    syncBuiltinESMExports();
   };
 }

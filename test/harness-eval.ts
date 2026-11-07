@@ -29,6 +29,8 @@ const prompt=message.params.input[0].text;
 fs.writeFileSync('pid-'+prompt,String(process.pid));
 send({id:message.id,result:{turn:{id:'turn'}}});
 note('turn/started',{turn:{id:'turn'}});
+if(prompt==='signal'){process.on('SIGTERM',()=>{});process.on('SIGINT',()=>{});process.kill(process.ppid,'SIGTERM');continue;}
+if(prompt==='escaped'){const child=require('node:child_process').spawn(process.execPath,['-e',"setInterval(()=>{},1000)"],{detached:true,stdio:['ignore',1,2]});fs.writeFileSync('escaped-pid',String(child.pid));continue;}
 if(prompt==='timeout')continue;
 if(prompt==='exit')process.exit(7);
 if(prompt==='question'){send({id:900,method:'item/tool/requestUserInput',params:{threadId:'fixture',turnId:'turn',itemId:'ask',questions:[{id:'choice',header:'Choice',question:'Which?',options:[{label:'One',description:'one'},{label:'Two',description:'two'}]}]}});continue;}
@@ -138,6 +140,8 @@ try {
     ["question", "needs_input"],
     ["overflow", "failed"],
     ["stderr", "failed"],
+    ["signal", "failed"],
+    ["escaped", "timeout"],
   ]) {
     const trial = run(prompt);
     assert.equal(
@@ -146,6 +150,12 @@ try {
       prompt + trial.execution.stderr + trial.execution.stdout,
     );
     assert.notEqual(trial.execution.status, 0);
+    if (prompt === "signal") assert.match(trial.result.error, /SIGTERM/);
+    if (prompt === "escaped") {
+      assert.ok(trial.result.elapsed_ms < 2700, "Cleanup must finish despite retained pipes.");
+      const escapedPid = Number(fs.readFileSync(path.join(scratch, "escaped-pid"), "utf8"));
+      process.kill(-escapedPid, "SIGKILL");
+    }
     const childPid = Number(fs.readFileSync(path.join(scratch, `pid-${prompt}`), "utf8"));
     assert.throws(() => process.kill(childPid, 0));
   }
@@ -162,5 +172,11 @@ try {
     "PASS isolated Codex evaluation: protocol, artifacts, ATIF pairing, flags, questions, exits, timeout, output cap and no Claude usage",
   );
 } finally {
+  const escapedFile = path.join(scratch, "escaped-pid");
+  if (fs.existsSync(escapedFile)) {
+    try {
+      process.kill(-Number(fs.readFileSync(escapedFile, "utf8")), "SIGKILL");
+    } catch {}
+  }
   fs.rmSync(scratch, { recursive: true, force: true });
 }

@@ -111,6 +111,10 @@ export async function runEvaluation(args: string[]) {
     () => finish("timeout", "Evaluation deadline exceeded."),
     options.timeout * 1000,
   );
+  const interrupted = (signal: NodeJS.Signals) =>
+    finish("failed", `Evaluation interrupted by ${signal}.`);
+  process.on("SIGINT", interrupted);
+  process.on("SIGTERM", interrupted);
   const event = recordEvents(eventFile, trace, finish, () => settled);
   try {
     const { codex } = await import("../providers/codex.ts");
@@ -144,6 +148,8 @@ export async function runEvaluation(args: string[]) {
     await stopProcesses();
     fs.closeSync(eventFile);
     cleanup();
+    process.off("SIGINT", interrupted);
+    process.off("SIGTERM", interrupted);
   }
   const result = {
     status,
