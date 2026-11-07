@@ -1,5 +1,6 @@
 import "./log-timestamps.ts";
 import compression from "compression";
+import { mountAutofund } from "./autofund.ts";
 import {
   acquireModelRequest,
   reportModel429,
@@ -1892,6 +1893,8 @@ const toolWatch = createToolWatch({
 if (process.env.AGENT_CONSOLE_MOCK !== "1") toolWatch.start();
 // Security scan results from the VPS host (read over SSH; "Run scan" is same-origin only).
 mountSecurity(app, sameOrigin, toolWatch);
+// Autofund dashboard relayed over a forced-command SSH key (actions are same-origin only).
+mountAutofund(app, sameOrigin);
 // Vault: write-only API token management (metadata out, values in; writes are same-origin only).
 mountVault(app, sameOrigin);
 // Improve prompt: Haiku rewrite + before/after effort quotes (same-origin only; capped Haiku spend).
