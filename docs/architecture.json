@@ -1,6 +1,6 @@
 {
   "title": "Agent Console architecture",
-  "subtitle": "The ai-digest script collects AI items from GitHub, arXiv and Google Trends",
+  "subtitle": "Agent Console includes an isolated Codex provider evaluation path with Harbor tasks and independent verification",
   "items": [
     {
       "group": "Share entry points",
@@ -421,6 +421,52 @@
         {"id":"vc-model","label":"sherpa-onnx + Parakeet","tech":"sherpa-onnx-node","desc":"Parakeet TDT 0.6b v2 int8 English, fetched by scripts/voice-models.sh; doctor reports presence","icon":"brain","status":"added"},
         {"id":"vc-sw","label":"Push answer actions","tech":"public/sw.js","desc":"Push shows up to two option buttons with a one-time nonce; a tap posts the answer","icon":"bell-ring","status":"added"}
       ]
+    },
+    {
+      "group": "Harness evaluation",
+      "icon": "flask-conical",
+      "items": [
+        {
+          "id": "eval-harbor",
+          "label": "Harbor adapter",
+          "tech": "Python / Harbor 0.25",
+          "desc": "Pinned Harbor custom installed agent; Codex only",
+          "icon": "container",
+          "status": "added"
+        },
+        {
+          "id": "eval-runner",
+          "label": "Headless evaluation runner",
+          "tech": "scripts/harness-eval.ts",
+          "desc": "Private configuration, explicit model, bounded run; provider layer only",
+          "icon": "terminal",
+          "status": "added"
+        },
+        {
+          "id": "eval-codex",
+          "label": "Evaluation provider call",
+          "tech": "Codex app-server",
+          "desc": "Calls the existing Console Codex integration and event normalizer",
+          "icon": "bot",
+          "status": "added"
+        },
+        {
+          "id": "eval-artifacts",
+          "label": "Trial artifacts",
+          "tech": "events.jsonl, trajectory.json, result.json",
+          "desc": "Provider status and usage; completion is not verifier success",
+          "icon": "files",
+          "status": "added"
+        },
+        {
+          "id": "eval-verifier",
+          "label": "Independent task verifier",
+          "tech": "Python task verifiers",
+          "desc": "Grades task files separately; broken baseline and oracle checks",
+          "icon": "check-check",
+          "status": "added"
+        }
+      ]
     }
   ],
   "edges": [
@@ -662,6 +708,30 @@
     {"from":"vc-route","to":"vc-ffmpeg","label":"decode in memory","status":"added"},
     {"from":"vc-ffmpeg","to":"vc-worker","label":"float samples","status":"added"},
     {"from":"vc-worker","to":"vc-model","label":"recognize","status":"added"},
-    {"from":"vc-sw","to":"perm-questions","label":"answer with nonce","status":"added"}
+    {"from":"vc-sw","to":"perm-questions","label":"answer with nonce","status":"added"},
+    {
+      "from": "eval-harbor",
+      "to": "eval-runner",
+      "label": "runs inside task sandbox",
+      "status": "added"
+    },
+    {
+      "from": "eval-runner",
+      "to": "eval-codex",
+      "label": "explicit Codex model",
+      "status": "added"
+    },
+    {
+      "from": "eval-codex",
+      "to": "eval-artifacts",
+      "label": "canonical events and usage",
+      "status": "added"
+    },
+    {
+      "from": "eval-harbor",
+      "to": "eval-verifier",
+      "label": "verifies outputs",
+      "status": "added"
+    }
   ]
 }
