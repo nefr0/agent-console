@@ -17,10 +17,16 @@ runner), never the working directory containing secrets:
 
 ```sh
 mkdir /tmp/console-eval-image
-git archive HEAD | tar -x -C /tmp/console-eval-image
-docker build -f /tmp/console-eval-image/evals/harbor/Dockerfile -t agent-console-eval:harbor-v1 /tmp/console-eval-image
+console_commit="$(git rev-parse HEAD)"
+git archive "$console_commit" | tar -x -C /tmp/console-eval-image
+docker build --build-arg CONSOLE_COMMIT="$console_commit" \
+  -f /tmp/console-eval-image/evals/harbor/Dockerfile \
+  -t agent-console-eval:harbor-v1 /tmp/console-eval-image
 ```
 
+The build requires the exact 40-character source revision and writes it into
+`/opt/agent-console/.harness-source-revision`. This supplies trace metadata when the
+clean archive has no `.git`; invalid or missing build metadata fails the image build.
 The fixture Dockerfiles use this local versioned image. For published measurements,
 replace `EVAL_IMAGE` with its immutable registry digest and record it with the source
 commit and exact dependency versions. The local tag is mutable: record the image ID

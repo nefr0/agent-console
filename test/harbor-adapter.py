@@ -11,6 +11,7 @@ import tempfile
 import unittest
 from pathlib import Path
 from types import SimpleNamespace
+from unittest.mock import AsyncMock
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
@@ -21,6 +22,7 @@ if "--require-harbor" in sys.argv:
         raise SystemExit("Pinned Harbor is required; install evals/harbor/requirements.txt")
 if HARBOR_AVAILABLE:
     from harbor.agents.factory import AgentFactory
+    from harbor.environments.docker.docker_unix import UnixOps
     from harbor.models.agent.context import AgentContext
     from harbor.models.job.config import JobConfig
     from harbor.models.task.config import TaskConfig
@@ -93,6 +95,20 @@ class FakeEnvironment:
 
 @unittest.skipUnless(HARBOR_AVAILABLE, "Install pinned Harbor for adapter API tests")
 class AdapterTests(unittest.TestCase):
+    def test_docker_download_copies_directory_contents(self):
+        class FakeDockerEnvironment:
+            @staticmethod
+            def runtime():
+                return SimpleNamespace(supports_compose_cp=False)
+
+        transfer = UnixOps(FakeDockerEnvironment())
+        transfer._download_via_engine_cp = AsyncMock()
+        with tempfile.TemporaryDirectory() as temporary:
+            asyncio.run(transfer.download_dir("/logs/agent/console-run", temporary))
+            transfer._download_via_engine_cp.assert_awaited_once_with(
+                "/logs/agent/console-run/.", temporary, "main"
+            )
+
     def test_real_factory_constructs_import_path(self):
         config = JobConfig.model_validate(
             {

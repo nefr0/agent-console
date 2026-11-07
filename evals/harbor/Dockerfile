@@ -9,5 +9,7 @@ RUN ln -s ../lib/node_modules/npm/bin/npm-cli.js /usr/local/bin/npm \
  && npm install -g @openai/codex@0.163.0
 WORKDIR /opt/agent-console
 COPY . .
+ARG CONSOLE_COMMIT
+RUN node -e 'const commit = process.env.CONSOLE_COMMIT; if (!/^[a-f0-9]{40}$/.test(commit ?? "")) throw new Error("CONSOLE_COMMIT must be a lowercase 40-character Git revision"); require("node:fs").writeFileSync(".harness-source-revision", commit + "\n")'
 RUN npm ci --omit=dev --ignore-scripts
 WORKDIR /app
