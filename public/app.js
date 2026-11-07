@@ -5636,6 +5636,7 @@ const PAGE_LINKS = {
   benchmarks: "benchmarks-link",
   automation: "auto-link",
   host: "host-link",
+  autofund: "autofund-link",
   vault: "vault-link",
   ideas: "ideas-link",
   brain: "brain-link",
@@ -5664,6 +5665,7 @@ createMenu({
     { value: "benchmarks", label: "Model benchmarks", icon: "chart" },
     { value: "automation", label: "Automation dashboard", icon: "play" },
     { value: "host", label: "Host dashboard", icon: "terminal" },
+    { value: "autofund", label: "Autofund", desc: "Balance, runway, review queue", icon: "chart" },
     {
       value: "vault",
       label: "Vault",

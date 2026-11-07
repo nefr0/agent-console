@@ -1,0 +1,112 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
+<title>Autofund · Agent Console</title>
+<link rel="icon" href="/icon.svg"><link rel="apple-touch-icon" href="/icon-192.png">
+<meta name="theme-color" content="#eeeef2" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0b0b0d" media="(prefers-color-scheme: dark)">
+<link rel="preload" href="/fonts/inter-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="/style.css"><link rel="stylesheet" href="/dashboard.css"><link rel="stylesheet" href="/autofund.css"></head>
+<body class="dash af">
+<header class="dh af-head">
+  <div class="af-bar">
+    <a class="btn ghost back" href="/" aria-label="Back to the console"><svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><path d="M10 3.5 5.5 8l4.5 4.5"/></svg><span>Console</span></a>
+    <h1>Autofund</h1>
+    <button type="button" class="btn sm ghost" id="refresh" aria-label="Refresh now">Refresh</button>
+  </div>
+  <div class="af-vitals" id="vitals" hidden>
+    <div class="af-bal"><span class="af-lbl">Balance</span><b id="v-usd" class="af-fig"></b><span id="v-inr" class="af-sub"></span></div>
+    <div class="af-run"><span class="af-lbl">Runway</span><b id="v-run" class="af-fig"></b></div>
+    <div class="af-pills"><span id="v-status" class="af-pill"></span><span id="v-mode" class="af-pill"></span><span id="v-kill" class="af-pill"></span></div>
+  </div>
+</header>
+<main id="afm" aria-busy="true">
+  <p class="af-meta" id="meta" role="status"></p>
+  <div class="af-banner" id="stale" role="status" hidden></div>
+  <section class="af-card af-state" id="state" hidden aria-live="polite"></section>
+  <div id="content" hidden>
+    <section class="panel af-wide" id="projection" aria-labelledby="h-proj">
+      <div class="head"><h2 id="h-proj">Projection</h2><span class="af-pill" id="p-badge"></span></div>
+      <p class="af-note" id="p-note"></p>
+      <!-- biome-ignore lint/a11y/useSemanticElements: role=group on a div styled by .range; fieldset would change the layout -->
+      <div class="range af-range" id="p-range" role="group" aria-label="Projection horizon"></div>
+      <div class="af-chart"><canvas id="p-chart" role="img" aria-label="Projected cumulative net USD with percentile bands"></canvas></div>
+      <dl class="af-grid" id="p-grid" aria-label="Values at the selected horizon"></dl>
+      <p class="af-foot">Cumulative net USD at each horizon, straight lines join the computed points. Bands are percentiles, not guarantees.</p>
+    </section>
+    <section class="panel" id="money" aria-labelledby="h-money">
+      <div class="head"><h2 id="h-money">Revenue and costs</h2></div>
+      <h3 class="af-h3">Revenue by stream</h3>
+      <ul class="af-rows" id="m-rev"></ul>
+      <h3 class="af-h3" id="m-cost-h">Costs</h3>
+      <ul class="af-rows" id="m-cost"></ul>
+      <div id="m-entries-wrap" hidden>
+        <h3 class="af-h3">Operator entries, not yet in the ledger</h3>
+        <ul class="af-rows" id="m-entries"></ul>
+      </div>
+      <form class="af-form" id="rev-form" autocomplete="off">
+        <h3 class="af-h3">Record revenue</h3>
+        <label class="af-field"><span>Source</span><select class="input" id="rev-src" required></select></label>
+        <label class="af-field"><span>Amount (USD)</span><input class="input" id="rev-amt" inputmode="decimal" placeholder="0.00" required></label>
+        <p class="af-err" id="rev-err" role="alert" hidden></p>
+        <button class="btn primary" type="submit">Record revenue</button>
+      </form>
+    </section>
+    <section class="panel" id="agents" aria-labelledby="h-agents">
+      <div class="head"><h2 id="h-agents">Agents</h2></div>
+      <ul class="af-list" id="a-list"></ul>
+      <p class="af-note" id="a-empty" hidden>No usage events yet.</p>
+      <p class="af-foot">API-equivalent USD is what the usage would cost on the API; the Max plan is a flat fee. Meters show plan usage windows.</p>
+    </section>
+    <section class="panel" id="review" aria-labelledby="h-review">
+      <div class="head"><h2 id="h-review">Review queue</h2><span class="af-count" id="r-count"></span></div>
+      <ul class="af-list" id="r-list"></ul>
+      <p class="af-note" id="r-empty" hidden>Nothing waiting for review.</p>
+    </section>
+    <section class="panel" id="alerts" aria-labelledby="h-alerts">
+      <div class="head"><h2 id="h-alerts">Alerts and requests</h2><button type="button" class="btn sm" id="ack">Acknowledge</button></div>
+      <p class="af-meta" id="ack-last"></p>
+      <h3 class="af-h3">Alerts</h3>
+      <ul class="af-list" id="al-list"></ul>
+      <p class="af-note" id="al-empty" hidden>No alerts.</p>
+      <h3 class="af-h3">Resource requests</h3>
+      <ul class="af-list" id="rq-list"></ul>
+      <p class="af-note" id="rq-empty" hidden>No requests.</p>
+    </section>
+    <section class="panel af-wide" id="decisions" aria-labelledby="h-dec">
+      <div class="head"><h2 id="h-dec">Decisions</h2><span class="af-count" id="d-count"></span></div>
+      <ul class="af-list" id="d-list"></ul>
+      <p class="af-note" id="d-empty" hidden>No decisions yet.</p>
+      <button type="button" class="btn block" id="d-more" hidden>Show more</button>
+    </section>
+    <section class="panel" id="deposit" aria-labelledby="h-dep">
+      <div class="head"><h2 id="h-dep">Deposit</h2></div>
+      <div id="dep-body" hidden>
+        <img class="af-qr" id="dep-qr" alt="QR code of the Safe address" width="160" height="160" hidden>
+        <p class="af-lbl">Safe address</p>
+        <div class="af-copy"><code class="af-mono" id="dep-addr"></code><button type="button" class="btn sm" id="dep-copy">Copy</button></div>
+        <p class="af-warn">Send USDC on <b>Base</b> only. Other networks or tokens can be lost for good.</p>
+      </div>
+      <p class="af-note" id="dep-empty" hidden>Safe address not configured.</p>
+    </section>
+    <section class="panel af-danger" id="kill" aria-labelledby="h-kill">
+      <div class="head"><h2 id="h-kill">Kill</h2></div>
+      <p class="af-note">This only records a request. Run the command below on the operator machine to stop everything.</p>
+      <div class="af-copy"><code class="af-mono" id="k-cmd"></code><button type="button" class="btn sm" id="k-copy">Copy</button></div>
+      <p class="af-meta" id="k-log"></p>
+      <button type="button" class="btn danger-fill" id="k-btn">Request kill</button>
+    </section>
+  </div>
+</main>
+<dialog id="confirm" aria-labelledby="c-title">
+  <h2 id="c-title">Confirm</h2>
+  <p class="sub" id="c-body"></p>
+  <p class="af-err" id="c-err" role="alert" hidden></p>
+  <div class="af-actions">
+    <button type="button" class="btn" id="c-cancel">Cancel</button>
+    <button type="button" class="btn primary" id="c-ok">Confirm</button>
+  </div>
+</dialog>
+<div id="toast" role="status" aria-live="polite" hidden></div>
+<script type="module" src="/autofund.js"></script>
+</body></html>
