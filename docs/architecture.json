@@ -37,8 +37,9 @@
           "id": "camofox-fb",
           "label": "Camofox fallback",
           "tech": "instagram-camofox.ts",
-          "desc": "Logged-out page JSON carousel_media; refused connection triggers autostart then one retry",
-          "icon": "globe"
+          "desc": "Logged-out page JSON carousel_media; refused connection triggers autostart then one retry; wedged tab (POST /tabs 500 or timeout) triggers one reactive heal then one retry",
+          "icon": "globe",
+          "status": "modified"
         },
         {
           "id": "autostart",
@@ -403,7 +404,8 @@
       ],
       "status": "added"
     },
-    {"group":"Scheduled tasks","icon":"calendar-clock","status":"modified","items":[{"id":"sch-tools","label":"Schedule tools","tech":"console-tools.mjs","desc":"schedule_create and schedule_update take tier (free|paid) and model","icon":"wrench","status":"modified"},{"id":"sch-tier","label":"resolveTier","tech":"schedules.ts","desc":"free = Pi default model, errors when Pi is down; paid = Claude Sonnet, low effort","icon":"scale","status":"added"},{"id":"sch-agent","label":"resolveAgent","tech":"schedules.ts","desc":"Applies the tier; an unknown model is an error, not a silent fallback; tier is not persisted","icon":"list-checks","status":"modified"},{"id":"sch-pi","label":"Pi provider","tech":"pi.ts","desc":"Free tier: default model and status check","icon":"cpu"},{"id":"sch-claude","label":"Claude provider","tech":"claude.ts","desc":"Paid tier: sonnet at low effort","icon":"sparkles"}]}
+    {"group":"Scheduled tasks","icon":"calendar-clock","status":"modified","items":[{"id":"sch-tools","label":"Schedule tools","tech":"console-tools.mjs","desc":"schedule_create and schedule_update take tier (free|paid) and model","icon":"wrench","status":"modified"},{"id":"sch-tier","label":"resolveTier","tech":"schedules.ts","desc":"free = Pi default model, errors when Pi is down; paid = Claude Sonnet, low effort","icon":"scale","status":"added"},{"id":"sch-agent","label":"resolveAgent","tech":"schedules.ts","desc":"Applies the tier; an unknown model is an error, not a silent fallback; tier is not persisted","icon":"list-checks","status":"modified"},{"id":"sch-pi","label":"Pi provider","tech":"pi.ts","desc":"Free tier: default model and status check","icon":"cpu"},{"id":"sch-claude","label":"Claude provider","tech":"claude.ts","desc":"Paid tier: sonnet at low effort","icon":"sparkles"}]},
+    {"group": "Workspace health", "icon": "heart-pulse", "status": "added", "items": [{"id": "hl-runner", "label": "Health runner", "tech": "server/health/runner.ts", "desc": "croner: nightly 04:15 IST full, hourly camofox only, manual run", "icon": "timer", "status": "added"}, {"id": "hl-checks", "label": "Workspace checks", "tech": "server/health/checks.ts", "desc": "Doctor items, disk, VPS ssh, release drift, GitHub triage receiver, workspace boot, phone link, CodeGraph watcher (heal: restart when down)", "icon": "list-checks", "status": "added"}, {"id": "hl-cam", "label": "Camofox probe and heal", "tech": "server/health/camofox.ts", "desc": "Probe opens and closes a tab in the share session; on 5xx, timeout or refused: SIGTERM then SIGKILL the pid (pid file, else single listener fallback), respawn; 4xx never heals; 10 min gap, 3 per 24 h", "icon": "heart-pulse", "status": "added"}, {"id": "hl-store", "label": "Run store", "tech": "health/runs.jsonl", "desc": "One JSON record per run with per-check status and heal record; last 14 read for history", "icon": "database", "status": "added"}, {"id": "hl-api", "label": "Health routes", "tech": "server/index.ts", "desc": "GET /api/host/health (latest, history, running); POST /api/host/health/run (same-origin)", "icon": "route", "status": "added"}, {"id": "hl-panel", "label": "Host page panel", "tech": "public/host-health.js", "desc": "Workspace health section on /host: overall badge, rows with status and heal note, 14-run strip, Run now", "icon": "layout-dashboard", "status": "added"}]}
   ],
   "edges": [
     {
@@ -618,6 +620,13 @@
     {"from":"sch-tools","to":"sch-tier","label":"tier","status":"added"},
     {"from":"sch-tier","to":"sch-agent","label":"provider, model, effort","status":"added"},
     {"from":"sch-agent","to":"sch-pi","label":"free","status":"added"},
-    {"from":"sch-agent","to":"sch-claude","label":"paid","status":"added"}
+    {"from":"sch-agent","to":"sch-claude","label":"paid","status":"added"},
+    {"from":"hl-runner","to":"hl-checks","label":"nightly full run","status":"added"},
+    {"from":"hl-runner","to":"hl-cam","label":"hourly and nightly probe","status":"added"},
+    {"from":"hl-cam","to":"camofox","label":"probe tab, restart on wedge","status":"added"},
+    {"from":"hl-runner","to":"hl-store","label":"append run record","status":"added"},
+    {"from":"hl-api","to":"hl-runner","label":"manual run, history","status":"added"},
+    {"from":"hl-api","to":"hl-panel","label":"JSON for panel","status":"added"},
+    {"from":"camofox-fb","to":"hl-cam","label":"reactive heal on wedged tab","status":"added"}
   ]
 }
