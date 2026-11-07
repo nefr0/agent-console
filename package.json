@@ -20,7 +20,7 @@
     "lint:fix": "sh tooling/repos/lint --fix .",
     "icons": "node scripts/make-icons.mjs",
     "fonts": "uv run --with-requirements scripts/fonts-requirements.txt scripts/build-fonts.py",
-    "test:release": "node test/release.ts && node test/standby-server.ts && node test/release-handoff.ts && node test/idle-restart-probe.ts",
+    "test:release": "node test/release.ts && node test/standby-server.ts && node test/release-handoff.ts && node test/idle-restart-probe.ts && node test/idle-restart-supersede.ts",
     "test:pi-e2e": "node test/pi-e2e-ui.ts",
     "test:notifications-browser": "node test/notifications-browser.ts",
     "test:questions": "node test/codex-async-questions.ts && node test/async-questions.ts && node test/archive-questions.ts && node test/questions.ts && node test/provider-questions.ts",
