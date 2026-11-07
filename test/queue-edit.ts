@@ -37,8 +37,14 @@ PROVIDERS.set("fixture", {
   },
 });
 let threads = new Threads(() => {});
+// The queue logic needs no shadow-git snapshots; with cwd inside the data dir each turn would spawn git over it.
+const createThread = (title: string) => {
+  const made = threads.create({ provider: "fixture", cwd: dir, title });
+  threads.get(made.id)!.checkpoints = "off";
+  return made;
+};
 try {
-  const t = threads.create({ provider: "fixture", cwd: dir, title: "Fixture" });
+  const t = createThread("Fixture");
   const upload = saveUpload(t.id, "notes.txt", "text/plain", Buffer.from("fixture"));
   threads.send(t.id, "active");
   const original = "original ".repeat(60);
@@ -127,7 +133,7 @@ try {
   );
   assert.equal(threads.getQueues()[t.id].length, 2);
   // a message sent in the gap between turn end and the queue draining joins behind the queue, never ahead of it
-  const r = threads.create({ provider: "fixture", cwd: dir, title: "Race" });
+  const r = createThread("Race");
   threads.send(r.id, "busy");
   threads.send(r.id, "older", { mode: "queue" });
   const m = sent.length;
@@ -137,7 +143,7 @@ try {
   drainTimers();
   assert.equal(sent.length, m + 1);
   assert.equal(sent.at(-1), "older\n\nnewer", "queued first, then the late message, as one prompt");
-  const stopped = threads.create({ provider: "fixture", cwd: dir, title: "Stop durability" });
+  const stopped = createThread("Stop durability");
   threads.send(stopped.id, "running before stop");
   threads.send(stopped.id, "cancelled pending prompt", { mode: "queue" });
   assert.equal(threads.getQueues()[stopped.id][0].editing, false);
