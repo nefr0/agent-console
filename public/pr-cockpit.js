@@ -225,23 +225,22 @@ function checkRow(cockpit, card, check) {
   return row;
 }
 
-function evidenceImage(url) {
-  const link = el("a", "pr-image");
+function evidenceLink(item, index) {
+  const legacy = typeof item === "string";
+  const url = safeUrl(legacy ? item : item?.url);
+  if (!url) return null;
+  const label =
+    (!legacy && typeof item.label === "string" && item.label.trim()) || `Evidence ${index + 1}`;
+  const link = el("a", "pr-evidence", label);
   link.href = url;
   link.target = "_blank";
   link.rel = "noopener";
-  const img = el("img");
-  img.src = url;
-  img.alt = "Evidence image";
-  img.loading = "lazy";
-  link.append(img);
   return link;
 }
 
 function evidence(card) {
-  const wrap = el("div", "pr-images");
-  const urls = (card.images || []).map(safeUrl).filter(Boolean);
-  wrap.append(...urls.map(evidenceImage));
+  const wrap = el("div", "pr-evidence-row");
+  wrap.append(...(card.images || []).map(evidenceLink).filter(Boolean));
   return wrap;
 }
 
