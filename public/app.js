@@ -30,6 +30,7 @@ import { createLatencyReporter } from "./telemetry.js";
 import { createTimeTravel } from "./time-travel.js";
 import { createTodos } from "./todos.js";
 import { toolName, toolSummary } from "./tool-display.js";
+import { autoRead, questionMic, setupVoice, speakButton } from "./voice.js";
 
 composerField($("input"));
 const hostCard = createHostCard($("composer").querySelector(".cwrap"));
@@ -282,6 +283,7 @@ const prCockpit = createPrCockpit({ apiFetch, toast: (text) => toast(text) });
 const questions = createQuestions({
   send,
   root: () => $("chat"),
+  mic: (onText) => questionMic(apiFetch, onText),
   changed: () => {
     renderThreads();
     updateWorking();
@@ -3539,7 +3541,10 @@ function asstMsg(text, final) {
   root.append(prose);
   if (final) {
     renderMarkdown(text, prose);
-    root.append(copyActions(() => text));
+    const actions = copyActions(() => text);
+    const speaker = speakButton(() => text);
+    if (speaker) actions.append(speaker);
+    root.append(actions);
   }
   return { root, prose };
 }
@@ -3866,6 +3871,7 @@ function onAssistantText(block, ctx) {
   dropLive("text");
   dropLive("thinking");
   push(asstMsg(block.text, true).root, ctx.live);
+  if (ctx.live) state.lastReply = block.text;
 }
 
 function onAssistantThinking(block, event, ctx) {
@@ -4011,6 +4017,8 @@ function resultStats(event) {
 }
 
 function onResult(event, ctx) {
+  if (ctx.live && !event.is_error && state.lastReply) autoRead(state.lastReply);
+  state.lastReply = "";
   dropLive("text");
   dropLive("thinking");
   state.live = null;
@@ -5724,6 +5732,7 @@ if ("serviceWorker" in navigator) {
   });
 }
 setupNotifications({ apiFetch });
+void setupVoice({ apiFetch, input: $("input"), send: $("send") });
 clearChat();
 renderHead();
 for (const p of await attachmentStorage.load()) {
