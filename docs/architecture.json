@@ -467,7 +467,8 @@
           "status": "added"
         }
       ]
-    }
+    },
+    {"group":"Agent tool PATH","icon":"terminal","status":"modified","items":[{"id":"ap-launcher","label":"Launcher","tech":"bin/agent-console","desc":"Now sources dotfiles shell/path.sh so the server and every child agent inherit brain/bin, dotfiles/bin, agent-console current/bin","icon":"rocket","status":"modified"},{"id":"ap-pathsh","label":"Shared PATH file","tech":"dotfiles shell/path.sh","desc":"One owner of the agent tool PATH; console-tool was command not found in 11 sessions","icon":"file-code"},{"id":"ap-secret","label":"secret CLI","tech":"scripts/secret.ts, bin/secret","desc":"list prints names only; run NAME -- cmd injects the value into the child env, never prints it","icon":"square-terminal","status":"added"},{"id":"ap-doctor","label":"Doctor agent-tools check","tech":"server/doctor.ts","desc":"Warns when console-tool, brain, waitfor or secret are not on the server PATH","icon":"stethoscope","status":"added"},{"id":"ap-agent","label":"Agent child process","tech":"server/providers/env.ts","desc":"Inherits the server PATH and runs tools by bare name","icon":"bot","status":"modified"}]}
   ],
   "edges": [
     {
@@ -732,6 +733,10 @@
       "to": "eval-verifier",
       "label": "verifies outputs",
       "status": "added"
-    }
+    },
+    {"from": "ap-launcher", "to": "ap-pathsh", "label": "sources"},
+    {"from": "ap-launcher", "to": "ap-agent", "label": "inherited PATH"},
+    {"from": "ap-agent", "to": "ap-secret", "label": "bare name"},
+    {"from": "ap-doctor", "to": "ap-launcher", "label": "checks PATH"}
   ]
 }
