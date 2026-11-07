@@ -468,7 +468,8 @@
         }
       ]
     },
-    {"group":"Agent tool PATH","icon":"terminal","status":"modified","items":[{"id":"ap-launcher","label":"Launcher","tech":"bin/agent-console","desc":"Now sources dotfiles shell/path.sh so the server and every child agent inherit brain/bin, dotfiles/bin, agent-console current/bin","icon":"rocket","status":"modified"},{"id":"ap-pathsh","label":"Shared PATH file","tech":"dotfiles shell/path.sh","desc":"One owner of the agent tool PATH; console-tool was command not found in 11 sessions","icon":"file-code"},{"id":"ap-secret","label":"secret CLI","tech":"scripts/secret.ts, bin/secret","desc":"list prints names only; run NAME -- cmd injects the value into the child env, never prints it","icon":"square-terminal","status":"added"},{"id":"ap-doctor","label":"Doctor agent-tools check","tech":"server/doctor.ts","desc":"Warns when console-tool, brain, waitfor or secret are not on the server PATH","icon":"stethoscope","status":"added"},{"id":"ap-agent","label":"Agent child process","tech":"server/providers/env.ts","desc":"Inherits the server PATH and runs tools by bare name","icon":"bot","status":"modified"}]}
+    {"group":"Agent tool PATH","icon":"terminal","status":"modified","items":[{"id":"ap-launcher","label":"Launcher","tech":"bin/agent-console","desc":"Now sources dotfiles shell/path.sh so the server and every child agent inherit brain/bin, dotfiles/bin, agent-console current/bin","icon":"rocket","status":"modified"},{"id":"ap-pathsh","label":"Shared PATH file","tech":"dotfiles shell/path.sh","desc":"One owner of the agent tool PATH; console-tool was command not found in 11 sessions","icon":"file-code"},{"id":"ap-secret","label":"secret CLI","tech":"scripts/secret.ts, bin/secret","desc":"list prints names only; run NAME -- cmd injects the value into the child env, never prints it","icon":"square-terminal","status":"added"},{"id":"ap-doctor","label":"Doctor agent-tools check","tech":"server/doctor.ts","desc":"Warns when console-tool, brain, waitfor or secret are not on the server PATH","icon":"stethoscope","status":"added"},{"id":"ap-agent","label":"Agent child process","tech":"server/providers/env.ts","desc":"Inherits the server PATH and runs tools by bare name","icon":"bot","status":"modified"}]},
+    {"group": "Deploy pipeline", "icon": "rocket", "status": "modified", "items": [{"id": "dp-cli", "label": "Deploy command", "tech": "bin/agent-console deploy|rollback", "desc": "Takes the claim lock (10 s), launches the run detached, echoes its one-line outcome: started, superseded, queued or dropped", "icon": "terminal", "status": "modified"}, {"id": "dp-run", "label": "Idle-restart run", "tech": "scripts/idle-restart.mjs", "desc": "Phases building, queued, waiting, switching; SIGTERMs an older live run (deferred while switching); builds, waits for idle, flips current, hands off", "icon": "refresh-cw", "status": "modified"}, {"id": "dp-state", "label": "Deploy state", "tech": "$RUN/idle-restart.state, idle-restart.claim-<pid>", "desc": "Owner pid, ref and phase; newest owner wins; claim file carries the outcome to the wrapper", "icon": "file-lock", "status": "added"}, {"id": "dp-release", "label": "Release build", "tech": "scripts/release.mjs", "desc": "Builds releases/<sha12>; .ready written last", "icon": "package", "status": "unchanged"}, {"id": "dp-current", "label": "Live release", "tech": "~/.local/share/agent-console/current", "desc": "Symlink flipped only by the run holding idle-restart.lock", "icon": "link", "status": "unchanged"}]}
   ],
   "edges": [
     {
@@ -737,6 +738,10 @@
     {"from": "ap-launcher", "to": "ap-pathsh", "label": "sources"},
     {"from": "ap-launcher", "to": "ap-agent", "label": "inherited PATH"},
     {"from": "ap-agent", "to": "ap-secret", "label": "bare name"},
-    {"from": "ap-doctor", "to": "ap-launcher", "label": "checks PATH"}
+    {"from": "ap-doctor", "to": "ap-launcher", "label": "checks PATH"},
+    {"from": "dp-cli", "to": "dp-run", "label": "launch + claim"},
+    {"from": "dp-run", "to": "dp-state", "label": "read, supersede, own"},
+    {"from": "dp-run", "to": "dp-release", "label": "build"},
+    {"from": "dp-run", "to": "dp-current", "label": "flip when idle"}
   ]
 }
