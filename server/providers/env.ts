@@ -5,7 +5,7 @@ import { privacyEnv } from "../privacy.ts";
 
 // Credentials for non-Claude providers come from env files, never from the Claude child's environment, so the
 // subscription login can't be swapped for metered billing by accident. Later files win; the process env wins over files.
-const FILES = (
+export const FILES = (
   process.env.AGENT_CONSOLE_ENV_FILES ||
   [
     path.join(os.homedir(), ".config", "agent-console", "env"),
