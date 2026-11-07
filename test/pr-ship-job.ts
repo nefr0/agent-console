@@ -153,6 +153,40 @@ try {
     updates.map((update) => [update.record.key, update.ship.state, update.ship.line]),
     [["o/r#9", "failed", "waiting for checks"]],
   );
+  // 4. race: the wrapper writes its exit line and exits right after the first output read, before the liveness probe
+  const racePid = 2 ** 22 + 54321;
+  const raceOut = path.join(dir, "o_r_10.out");
+  fs.writeFileSync(raceOut, "args: 10\n");
+  fs.writeFileSync(
+    path.join(dir, "o_r_10.json"),
+    JSON.stringify({
+      pid: racePid,
+      key: "o/r#10",
+      thread: "thread-b",
+      startedAt: Date.now(),
+      outFile: raceOut,
+    }),
+  );
+  updates.length = 0;
+  const realKill = process.kill;
+  process.kill = ((pid: number, signal?: string | number) => {
+    if (pid !== racePid) return realKill(pid, signal);
+    fs.appendFileSync(raceOut, "PR 10 merged\nexit:0\n");
+    const gone: NodeJS.ErrnoException = new Error("kill ESRCH");
+    gone.code = "ESRCH";
+    throw gone;
+  }) as typeof process.kill;
+  try {
+    const seventh = instance();
+    seventh.tick();
+    seventh.stop();
+  } finally {
+    process.kill = realKill;
+  }
+  assert.deepEqual(
+    updates.map((update) => [update.record.key, update.ship.state, update.ship.line]),
+    [["o/r#10", "merged", "PR 10 merged"]],
+  );
   console.log("pr-ship-job: ok");
 } finally {
   fs.rmSync(scratch, { recursive: true, force: true });
