@@ -3,6 +3,7 @@ import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { consoleCommit } from "../server/evaluation/run.ts";
 
 const scratch = fs.mkdtempSync(path.join(os.tmpdir(), "harness-eval-test-"));
 const script = path.resolve("scripts/harness-eval.ts");
@@ -100,6 +101,14 @@ function run(prompt: string, extra: string[] = []) {
   };
 }
 try {
+  const archiveRoot = path.join(scratch, "archive");
+  fs.mkdirSync(archiveRoot);
+  const revisionFile = path.join(archiveRoot, ".harness-source-revision");
+  assert.equal(consoleCommit(archiveRoot), "unknown");
+  fs.writeFileSync(revisionFile, "880ef38a7341460ce78afc24494a8be9aad6d71e\n");
+  assert.equal(consoleCommit(archiveRoot), "880ef38a7341460ce78afc24494a8be9aad6d71e");
+  fs.writeFileSync(revisionFile, "untrusted-revision");
+  assert.equal(consoleCommit(archiveRoot), "unknown");
   const success = run("success");
   assert.equal(success.execution.status, 0, success.execution.stderr + success.execution.stdout);
   assert.equal(success.result.status, "completed");

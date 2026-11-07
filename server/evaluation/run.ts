@@ -44,16 +44,25 @@ export function parseArguments(args: string[]) {
   return { ...values, timeout };
 }
 
-function consoleCommit() {
+export function consoleCommit(sourceRoot = fileURLToPath(new URL("../../", import.meta.url))) {
   try {
     return execFileSync("git", ["rev-parse", "HEAD"], {
-      cwd: fileURLToPath(new URL("../../", import.meta.url)),
+      cwd: sourceRoot,
+      env: { PATH: process.env.PATH },
       encoding: "utf8",
       timeout: 2000,
       stdio: ["ignore", "pipe", "ignore"],
     }).trim();
   } catch {
-    return "unknown";
+    // Archive-built evaluation images carry the source revision without Git metadata.
+    try {
+      const revision = fs
+        .readFileSync(path.join(sourceRoot, ".harness-source-revision"), "utf8")
+        .trim();
+      return /^[a-f0-9]{40}$/.test(revision) ? revision : "unknown";
+    } catch {
+      return "unknown";
+    }
   }
 }
 
