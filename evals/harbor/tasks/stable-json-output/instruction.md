@@ -1,0 +1,1 @@
+Fix /app/convert.py: convert(lines) accepts JSONL text and returns JSONL text. Ignore blank lines. Each row has an id and optional value (missing becomes null). Keep the last row for each id. Sort output by id lexicographically. Emit only id and value, compact JSON, keys sorted, one newline after every output row. Empty input returns an empty string. Values may contain Unicode.

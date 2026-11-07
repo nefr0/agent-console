@@ -1,0 +1,1 @@
+Fix /app/stats.py: summarize(values) returns a dict with count, minimum, maximum, mean. Empty input returns count 0 and None for the other fields. Negative and mixed integers must work. Do not change the public function name.
