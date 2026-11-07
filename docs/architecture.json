@@ -995,6 +995,53 @@
       ]
     },
     {
+      "group": "Deploy pipeline",
+      "icon": "rocket",
+      "status": "modified",
+      "items": [
+        {
+          "id": "dp-cli",
+          "label": "Deploy command",
+          "tech": "bin/agent-console deploy|rollback",
+          "desc": "Takes the claim lock (10 s), launches the run detached, echoes its one-line outcome: started, superseded, queued or dropped",
+          "icon": "terminal",
+          "status": "modified"
+        },
+        {
+          "id": "dp-run",
+          "label": "Idle-restart run",
+          "tech": "scripts/idle-restart.mjs",
+          "desc": "Phases building, queued, waiting, switching; SIGTERMs an older live run (deferred while switching); builds, waits for idle, flips current, hands off",
+          "icon": "refresh-cw",
+          "status": "modified"
+        },
+        {
+          "id": "dp-state",
+          "label": "Deploy state",
+          "tech": "$RUN/idle-restart.state, idle-restart.claim-<pid>",
+          "desc": "Owner pid, ref and phase; newest owner wins; claim file carries the outcome to the wrapper",
+          "icon": "file-lock",
+          "status": "added"
+        },
+        {
+          "id": "dp-release",
+          "label": "Release build",
+          "tech": "scripts/release.mjs",
+          "desc": "Builds releases/<sha12>; .ready written last",
+          "icon": "package",
+          "status": "unchanged"
+        },
+        {
+          "id": "dp-current",
+          "label": "Live release",
+          "tech": "~/.local/share/agent-console/current",
+          "desc": "Symlink flipped only by the run holding idle-restart.lock",
+          "icon": "link",
+          "status": "unchanged"
+        }
+      ]
+    },
+    {
       "group": "Autofund page",
       "sub": "public/autofund.*, server/autofund.ts",
       "border": "solid",
@@ -1579,6 +1626,26 @@
       "from": "ap-doctor",
       "to": "ap-launcher",
       "label": "checks PATH"
+    },
+    {
+      "from": "dp-cli",
+      "to": "dp-run",
+      "label": "launch + claim"
+    },
+    {
+      "from": "dp-run",
+      "to": "dp-state",
+      "label": "read, supersede, own"
+    },
+    {
+      "from": "dp-run",
+      "to": "dp-release",
+      "label": "build"
+    },
+    {
+      "from": "dp-run",
+      "to": "dp-current",
+      "label": "flip when idle"
     },
     {
       "from": "af-page",

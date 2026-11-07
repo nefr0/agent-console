@@ -4,6 +4,9 @@
 //             idle, point $APP/current at the release and hand the port over: a standby supervisor starts the new server, which
 //             loads its modules and waits; then the old supervisor and server stop and the standby gets `go` (a gap well under 1 s).
 //   rollback: the same handoff to $APP/previous, no build.
+// Newest wins (#495): a new run reads $RUN/idle-restart.state, SIGTERMs a live older run (it exits unless it is already switching, then
+// the new one queues behind it on idle-restart.lock) and reports the outcome in $RUN/idle-restart.claim-<pid> for the wrapper.
+// Phases: building (no lock) -> queued (blocking on the lock) -> waiting (holds it, waiting for idle) -> switching (flip to exit).
 // Source repo: $AGENT_CONSOLE_REPO, else the `repo` field of RELEASE.json of the running release, else the git tree of this script.
 
 import { execFileSync, spawn } from "node:child_process";
@@ -33,11 +36,15 @@ const PREVIOUS = path.join(APP, "previous");
 const PID_FILE = path.join(RUN, "pid");
 const SUPERVISOR_FILE = path.join(RUN, "supervisor");
 const READY_FILE = path.join(RUN, "standby-ready");
+const LOCK_FILE = path.join(RUN, "idle-restart.lock");
+const STATE_FILE = path.join(RUN, "idle-restart.state");
+const RELEASE_SCRIPT =
+  process.env.AGENT_CONSOLE_RELEASE_SCRIPT || path.join(ROOT, "scripts", "release.mjs");
 const HANDOFF_MARKER = path.join(RUN, "handoff");
 const STANDBY_WAIT_MS = 5000;
 const GO_WAIT_MS = 8000; // the old server gets 3 s before SIGKILL
 const HELLO_WAIT_MS = 20_000; // hello is slow under load; the full wait is only spent on a genuine failure
-const IDLE_MS = 1500; // a queued message may start the next turn right after one ends
+const IDLE_MS = Number(process.env.AGENT_CONSOLE_IDLE_MS) || 1500; // a queued message may start the next turn right after one ends (env: tests)
 const MAX_ATTEMPTS = 3;
 const AUTH = { origin: `http://127.0.0.1:${PORT}`, cookie: bothCookies() };
 const WS_URL = `ws://127.0.0.1:${PORT}/ws`;
@@ -92,6 +99,94 @@ async function pollUntil(test, timeoutMs, stepMs) {
   return test();
 }
 
+// ---- newest wins: state, claim, lock ------------------------------------------------------------------------------------
+
+let phase = "building";
+let releaseChild = null;
+let lockHolder = null;
+
+const readState = () => {
+  try {
+    return JSON.parse(fs.readFileSync(STATE_FILE, "utf8"));
+  } catch {
+    return null;
+  }
+};
+const ownsState = () => readState()?.pid === process.pid;
+
+// tmp + rename so a reader never sees half a file; later phases are only written while the file still names this process
+function writeState(next, force) {
+  phase = next;
+  if (!force && !ownsState()) return;
+  const tmp = `${STATE_FILE}.tmp-${process.pid}`;
+  const state = { pid: process.pid, verb: MODE, ref: REF, phase, since: new Date().toISOString() };
+  fs.writeFileSync(tmp, JSON.stringify(state));
+  fs.renameSync(tmp, STATE_FILE);
+}
+const setPhase = (next) => writeState(next, false);
+
+const isPeer = (state) =>
+  !!state &&
+  state.pid !== process.pid &&
+  isAlive(state.pid) &&
+  cmdline(state.pid).includes("idle-restart.mjs");
+
+function claimResult(previous) {
+  if (!isPeer(previous)) return `deploy started (pid ${process.pid})`;
+  killQuietly(previous.pid, "SIGTERM"); // the pid only, never its group
+  return previous.phase === "switching"
+    ? `queued behind pid ${previous.pid} (switching)`
+    : `superseded pid ${previous.pid} (${previous.ref}, ${previous.phase})`;
+}
+
+function claim() {
+  const result = claimResult(readState());
+  writeState("building", true);
+  log(result);
+  const file = path.join(RUN, `idle-restart.claim-${process.pid}`);
+  fs.writeFileSync(`${file}.tmp`, `${result}\n`);
+  fs.renameSync(`${file}.tmp`, file);
+}
+
+function releaseLock() {
+  lockHolder?.stdin.end();
+  lockHolder?.kill("SIGTERM");
+  lockHolder = null;
+}
+
+function onSupersede() {
+  if (phase === "switching") {
+    log("supersede deferred until switch ends");
+    return;
+  }
+  log(`superseded by pid ${readState()?.pid}`);
+  if (releaseChild?.pid) killQuietly(-releaseChild.pid, "SIGTERM");
+  releaseLock();
+  process.exit(0);
+}
+
+// Node has no flock: `flock` holds the lock on a child that lives until our stdin closes, so it is released when we exit, however we exit.
+function acquireLock() {
+  return new Promise((resolve, reject) => {
+    const holder = spawn("flock", [LOCK_FILE, "sh", "-c", "echo held; cat >/dev/null"], {
+      stdio: ["pipe", "pipe", "inherit"],
+    });
+    lockHolder = holder;
+    holder.once("error", reject);
+    holder.once("exit", (code) => reject(new Error(`lock holder exited ${code}`)));
+    holder.stdout.once("data", () => resolve());
+  });
+}
+
+async function takeLock() {
+  setPhase("queued");
+  log("Queued for the deploy lock.");
+  await acquireLock();
+  if (!ownsState()) give("Superseded while queued; exiting.", 0);
+  setPhase("waiting");
+  log("Holding the deploy lock.");
+}
+
 // ---- release selection -------------------------------------------------------------------------------------------------
 
 function repoOf(releaseDir) {
@@ -113,10 +208,11 @@ function resolveRepo() {
 
 function runRelease(repo) {
   return new Promise((resolve, reject) => {
-    const script = path.join(ROOT, "scripts", "release.mjs");
-    const child = spawn(process.execPath, [script, REF, "--repo", repo], {
+    const child = spawn(process.execPath, [RELEASE_SCRIPT, REF, "--repo", repo], {
       stdio: ["ignore", "pipe", "inherit"],
+      detached: true, // own group, so superseding kills the build and the flock/npm below it
     });
+    releaseChild = child;
     let out = "";
     child.stdout.on("data", (chunk) => {
       out += chunk;
@@ -211,17 +307,22 @@ const isBusy = (watcher) =>
 function waitIdle(watcher, original) {
   return new Promise((resolve) => {
     let idleSince = 0;
-    const timer = setInterval(() => {
-      if (readText(PID_FILE) !== original) give("Server was already restarted; nothing to do.", 0);
-      if (isBusy(watcher)) {
-        idleSince = 0;
-        return;
-      }
-      idleSince ||= Date.now();
-      if (Date.now() - idleSince < IDLE_MS) return;
-      clearInterval(timer);
-      resolve();
-    }, 500);
+    const timer = setInterval(
+      () => {
+        if (!ownsState()) give("Superseded while waiting; exiting.", 0);
+        if (readText(PID_FILE) !== original)
+          give("Server was already restarted; nothing to do.", 0);
+        if (isBusy(watcher)) {
+          idleSince = 0;
+          return;
+        }
+        idleSince ||= Date.now();
+        if (Date.now() - idleSince < IDLE_MS) return;
+        clearInterval(timer);
+        resolve();
+      },
+      Math.min(500, IDLE_MS / 3),
+    );
   });
 }
 
@@ -360,6 +461,7 @@ async function recover(undo, why) {
 // ---- main --------------------------------------------------------------------------------------------------------------
 
 async function coldStart(target, wantBuild) {
+  setPhase("switching");
   log("No server is running; pointing current at the release and starting it.");
   flip(target);
   execFileSync(path.join(CURRENT, "bin", "agent-console"), ["start"], { stdio: "inherit" });
@@ -384,20 +486,26 @@ async function attemptLoop(target, wantBuild, watcher, original) {
   for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
     await waitIdle(watcher, original);
     log(`All threads idle (attempt ${attempt}/${MAX_ATTEMPTS}); handing over to ${wantBuild}.`);
+    setPhase("switching");
     const undo = flip(target);
     const result = await handoffTo(wantBuild, watcher);
     if (result.ok) return give(`Restarted and answering (build ${result.build}).`, 0);
     if (!result.retry) return recover(undo, result.why);
     revert(undo);
+    setPhase("waiting");
     log(`Handoff aborted (${result.why}); the old server keeps serving.`);
   }
   return give(`Gave up after ${MAX_ATTEMPTS} attempts; the old server keeps serving.`, 1);
 }
 
 async function main() {
-  const target = MODE === "rollback" ? rollbackTarget() : await buildTarget();
+  process.on("SIGTERM", onSupersede);
+  claim();
+  const built = MODE === "rollback" ? null : await buildTarget();
+  await takeLock();
+  const target = built ?? rollbackTarget(); // a rollback queued behind a deploy means the release that deploy replaced
   const wantBuild = path.basename(target);
-  const original = readText(PID_FILE);
+  const original = readText(PID_FILE); // the baseline is the server running now, not the one at launch
   if (!isServer(original)) return coldStart(target, wantBuild);
   const watcher = await connectWatcher(original);
   if (watcher.build === wantBuild) give(`Build ${wantBuild} is already running; nothing to do.`, 0);

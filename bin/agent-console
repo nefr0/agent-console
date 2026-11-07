@@ -145,7 +145,14 @@ case "${1:-status}" in
   # (gap well under a second). Open browsers reload themselves. rollback does the same with $APP/previous and no build.
   # redirect the whole subshell: a forked list left holding the caller's stdout makes `... | tail` wait for the restart
   deploy|restart-when-idle|rollback) verb=$1; [ "$verb" = rollback ] || verb=deploy; [ $# -gt 0 ] && shift
-         (cd "$DIR" && exec setsid nohup flock --close -n "$RUN/idle-restart.lock" node scripts/idle-restart.mjs "$verb" "$@") </dev/null >>"$RUN/idle-restart.log" 2>&1 & echo "$verb scheduled: it happens when no thread is running (log: $RUN/idle-restart.log)" ;;
+         # the claim lock serializes launches until the new run has read the old run's state and written its one-line outcome
+         ( flock -w 10 9 || { echo "$verb dropped: another deploy command held $RUN/idle-restart.claim for 10 s"; exit 0; }
+           (cd "$DIR" && exec setsid nohup node scripts/idle-restart.mjs "$verb" "$@") </dev/null >>"$RUN/idle-restart.log" 2>&1 9>&- &
+           pid=$!; res="$RUN/idle-restart.claim-$pid"
+           for _ in $(seq 100); do [ -s "$res" ] && break; kill -0 "$pid" 2>/dev/null || break; sleep 0.05; done
+           if [ -s "$res" ]; then echo "$verb: $(cat "$res"); it happens when no thread is running (log: $RUN/idle-restart.log)"; rm -f "$res"
+           else echo "$verb dropped: the run (pid $pid) wrote no claim result within 5 s (log: $RUN/idle-restart.log)"; fi
+         ) 9>"$RUN/idle-restart.claim" ;;
   status) running && echo "up (pid $(cat "$RUN/pid"))" || echo down ;;
   password) cat "$HOME/.config/agent-console/password" 2>/dev/null || echo "(created on first start)" ;;
   url) PORT=$PORT node "$DIR/scripts/console-url.ts" ;;
