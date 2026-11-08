@@ -16,6 +16,8 @@ const SESSION_TONE = {
 };
 const ACCOUNT_LABEL = {
   "apify-token": "Apify token",
+  "polar-token": "Polar access token",
+  "cloudflare-tunnel": "Cloudflare tunnel token",
   hackerone: "HackerOne API token",
   "play-sa": "Google Play service account",
   "play-keystore": "Play upload keystore",
@@ -690,6 +692,30 @@ function secretArea() {
   return area;
 }
 
+const POLAR_HELP =
+  "Polar > Settings > Developers > New token (products, files, benefits, checkout links write; orders read)";
+const CLOUDFLARE_HELP =
+  "Cloudflare > Networking > Tunnels > Create > copy token; add route shop.<domain> -> http://localhost:8766";
+
+/** Single masked token field with a help line, same pattern as the Apify form. */
+function tokenForm(label, help) {
+  const token = secretInput("password");
+  return {
+    controls: [formField(label, token), el("p", "af-note", help)],
+    read: () => {
+      const value = token.value.trim();
+      if (!value) throw new Error("Enter the token.");
+      return value;
+    },
+    clear: () => {
+      token.value = "";
+    },
+  };
+}
+
+const polarForm = () => tokenForm("Polar access token", POLAR_HELP);
+const cloudflareForm = () => tokenForm("Cloudflare tunnel token", CLOUDFLARE_HELP);
+
 /** Each builder returns { controls, read, clear }. read() returns the exact string to send or throws a short message. */
 function apifyForm() {
   const token = secretInput("password");
@@ -750,7 +776,13 @@ function playSaForm() {
   };
 }
 
-const FORMS = { "apify-token": apifyForm, hackerone: hackeroneForm, "play-sa": playSaForm };
+const FORMS = {
+  "apify-token": apifyForm,
+  "polar-token": polarForm,
+  "cloudflare-tunnel": cloudflareForm,
+  hackerone: hackeroneForm,
+  "play-sa": playSaForm,
+};
 
 async function storeSecret(name, value) {
   const res = await api("/api/autofund/secret", {
@@ -950,6 +982,48 @@ function renderReview() {
   $("r-list").replaceChildren(...items.map(reviewCard));
 }
 
+// ---------- venture ----------
+
+const dayOf = (iso) => {
+  const when = iso ? new Date(iso) : null;
+  return when && !Number.isNaN(when.getTime()) ? when.toISOString().slice(0, 10) : "";
+};
+const textOf = (value) => (value == null || value === "" ? "" : String(value));
+const moneyOf = (value) => (value == null || value === "" ? "" : usd(value));
+
+function ventureRows(venture) {
+  const product = venture.product;
+  const title = textOf(typeof product === "object" && product ? product.title : product);
+  const source = venture.best_source;
+  const sourceName = textOf(typeof source === "object" && source ? source.name : source);
+  const reason = textOf(venture.best_source_reason);
+  const rows = [
+    ["Product", title],
+    ["Last report", dayOf(venture.report_date || venture.last_report)],
+    ["Revenue gross", moneyOf(venture.revenue?.gross ?? venture.gross)],
+    ["Revenue net", moneyOf(venture.revenue?.net ?? venture.net)],
+    ["Sales", textOf(venture.sales)],
+    ["Best source", reason && sourceName ? `${sourceName} (${reason})` : sourceName || reason],
+    ["Next action", textOf(venture.next_action)],
+  ];
+  return rows.filter(([, value]) => value);
+}
+
+function renderVenture() {
+  const venture = data.venture;
+  const shown = Boolean(venture) && typeof venture === "object";
+  $("venture").hidden = !shown;
+  if (!shown) return;
+  $("vn-stage").textContent = textOf(venture.stage);
+  const items = ventureRows(venture).map(([label, value]) => {
+    const row = el("li");
+    row.append(el("span", "af-lbl", label), el("span", null, value));
+    return row;
+  });
+  if (!items.length) items.push(el("li", null, "No report yet."));
+  $("vn-rows").replaceChildren(...items);
+}
+
 // ---------- alerts, requests ----------
 
 const SEVERITY_TONE = { warn: "warn", warning: "warn", error: "bad", critical: "bad" };
@@ -1059,6 +1133,7 @@ function render() {
   renderMeta();
   renderProjection();
   renderMoney();
+  renderVenture();
   renderSessions();
   renderAgents();
   renderReview();
