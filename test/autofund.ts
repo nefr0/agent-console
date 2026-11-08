@@ -5,7 +5,6 @@ import http from "node:http";
 import os from "node:os";
 import path from "node:path";
 import express from "express";
-import { mountAutofund } from "../server/autofund.ts";
 
 const dir = fs.mkdtempSync(path.join(os.tmpdir(), "autofund-"));
 const FIXTURE = { state: "running", pending: [{ id: 7, kind: "spend" }], balance: 12.5 };
@@ -14,6 +13,11 @@ process.env.STUB_DIR = dir;
 process.env.AUTOFUND_SSH_BIN = path.join(import.meta.dirname, "autofund-stub.sh");
 process.env.AUTOFUND_SSH_KEY = "/tmp/no-such-key";
 delete process.env.AUTOFUND_SSH_TARGET;
+const envFile = path.join(dir, "env");
+fs.writeFileSync(envFile, "");
+process.env.AGENT_CONSOLE_ENV_FILES = envFile;
+// env.ts reads AGENT_CONSOLE_ENV_FILES at module load, so autofund.ts must be imported after it is set.
+const { mountAutofund } = await import("../server/autofund.ts");
 
 const app = express();
 // Stand-in for the session gate that index.ts installs before every mount.
@@ -52,11 +56,17 @@ try {
     "cross-origin POST refused",
   );
 
-  let r = await fetch(`${base}/api/autofund`, { headers: authed });
-  assert.equal(r.status, 503);
-  assert.deepEqual(await r.json(), { error: "not configured" });
+  let response = await fetch(`${base}/api/autofund`, { headers: authed });
+  assert.equal(response.status, 503);
+  assert.deepEqual(await response.json(), { error: "not configured" });
   assert.equal((await post({ verb: "ack", args: [] })).status, 503);
   assert.equal(calls().length, 0, "unconfigured never calls ssh");
+
+  // A target that only lives in the env file configures the route. An invalid action returns 400 only when
+  // configured (the config gate runs first and 503s otherwise), and it never reaches ssh.
+  fs.writeFileSync(envFile, "AUTOFUND_SSH_TARGET=autofund-relay@test.invalid\n");
+  assert.equal((await post({ verb: "rm", args: [] })).status, 400, "env-file target configures");
+  assert.equal(calls().length, 0, "env-file check never calls ssh");
 
   process.env.AUTOFUND_SSH_TARGET = "autofund-relay@test.invalid";
   for (const bad of [
@@ -76,9 +86,9 @@ try {
     assert.equal((await post(bad)).status, 400, JSON.stringify(bad));
   assert.equal(calls().length, 0, "rejected actions never reach ssh");
 
-  r = await fetch(`${base}/api/autofund`, { headers: authed });
-  assert.equal(r.status, 200);
-  assert.deepEqual(await r.json(), FIXTURE);
+  response = await fetch(`${base}/api/autofund`, { headers: authed });
+  assert.equal(response.status, 200);
+  assert.deepEqual(await response.json(), FIXTURE);
   assert.match(
     calls()[0],
     /^-i \/tmp\/no-such-key -o BatchMode=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=5 -o IdentitiesOnly=yes autofund-relay@test\.invalid dashboard$/,
@@ -86,22 +96,22 @@ try {
   await fetch(`${base}/api/autofund`, { headers: authed });
   assert.equal(calls().length, 1, "dashboard cached for 30 s");
 
-  r = await post({ verb: "revenue", args: ["ad_sense", "12.50"] });
-  assert.equal(r.status, 200);
-  assert.deepEqual(await r.json(), { ok: true, ran: "revenue ad_sense 12.50" });
+  response = await post({ verb: "revenue", args: ["ad_sense", "12.50"] });
+  assert.equal(response.status, 200);
+  assert.deepEqual(await response.json(), { ok: true, ran: "revenue ad_sense 12.50" });
   assert.equal((await post({ verb: "approve", args: ["42"] })).status, 200);
   assert.equal(calls().at(-1)?.endsWith("autofund-relay@test.invalid approve 42"), true);
 
   // The action invalidated the cache, so the next read hits the relay again; then the relay dies.
   fs.writeFileSync(path.join(dir, "dashboard"), JSON.stringify({ ...FIXTURE, balance: 13 }));
   {
-    const before = calls().filter((c) => c.endsWith(" dashboard")).length;
+    const before = calls().filter((line) => line.endsWith(" dashboard")).length;
     assert.equal(
       ((await (await fetch(`${base}/api/autofund`, { headers: authed })).json()) as any).balance,
       13,
     );
     assert.equal(
-      calls().filter((c) => c.endsWith(" dashboard")).length,
+      calls().filter((line) => line.endsWith(" dashboard")).length,
       before + 1,
       "action invalidated cache",
     );
@@ -121,9 +131,9 @@ try {
   // Nothing good cached: failure is a plain 502 with text only.
   const { resetAutofundCache } = await import("../server/autofund.ts");
   resetAutofundCache();
-  r = await fetch(`${base}/api/autofund`, { headers: authed });
-  const failure: any = await r.json();
-  assert.equal(r.status, 502);
+  response = await fetch(`${base}/api/autofund`, { headers: authed });
+  const failure: any = await response.json();
+  assert.equal(response.status, 502);
   assert.equal(typeof failure.error, "string");
   assert.equal(failure.stack, undefined);
   console.log("autofund ok");
