@@ -1492,6 +1492,7 @@ li.sel .dot {
 .actions {
   display: flex;
   align-items: center;
+  justify-content: flex-end;
   gap: 2px;
   margin: var(--sp-1) calc(var(--sp-2) * -1) 0;
   color: var(--t3);
@@ -2769,9 +2770,7 @@ details[open] > summary .chev {
 .actions .foot {
   order: -1;
   margin-left: var(--sp-2);
-}
-.actions .btn {
-  margin-left: auto;
+  margin-right: auto;
 }
 div.msg.foot {
   margin-top: calc(var(--sp-2) * -1);
