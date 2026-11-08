@@ -482,19 +482,19 @@
           "id": "af-page",
           "label": "Autofund page",
           "tech": "public/autofund.*",
-          "desc": "Balance, projections, sessions swarm tree and drawer, accounts handoff, review queue, kill",
+          "desc": "Balance, projections, venture card, sessions swarm tree and drawer, accounts handoff (Apify, Polar, Cloudflare tunnel), review queue, kill",
+          "status": "modified",
           "icon": "layout-dashboard",
-          "color": "teal",
-          "status": "added"
+          "color": "teal"
         },
         {
           "id": "af-route",
           "label": "Autofund routes",
           "tech": "server/autofund.ts",
-          "desc": "Cached GET, session detail, secret POST via ssh stdin; session, same-origin, allowlist",
+          "desc": "Cached GET, session detail, secret POST via ssh stdin; allowlist adds polar-token and cloudflare-tunnel",
+          "status": "modified",
           "icon": "route",
-          "color": "blue",
-          "status": "added"
+          "color": "blue"
         },
         {
           "id": "af-relay",
