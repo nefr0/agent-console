@@ -7,8 +7,24 @@ import path from "node:path";
 import express from "express";
 
 const dir = fs.mkdtempSync(path.join(os.tmpdir(), "autofund-"));
+const SESSION = { schema: 1, task_id: "plan-1", status: "running", events: [], subagents: [] };
+const ACCOUNTS = {
+  ok: true,
+  accounts: [
+    { name: "apify-token", present: false, fingerprint: null, stored_at: null, settable: true },
+    {
+      name: "play-keystore",
+      present: true,
+      fingerprint: "0f1e2d3c",
+      stored_at: null,
+      settable: false,
+    },
+  ],
+};
 const FIXTURE = { state: "running", pending: [{ id: 7, kind: "spend" }], balance: 12.5 };
 fs.writeFileSync(path.join(dir, "dashboard"), JSON.stringify(FIXTURE));
+fs.writeFileSync(path.join(dir, "session-plan-1"), JSON.stringify(SESSION));
+fs.writeFileSync(path.join(dir, "secrets"), JSON.stringify(ACCOUNTS));
 process.env.STUB_DIR = dir;
 process.env.AUTOFUND_SSH_BIN = path.join(import.meta.dirname, "autofund-stub.sh");
 process.env.AUTOFUND_SSH_KEY = "/tmp/no-such-key";
@@ -36,6 +52,13 @@ const calls = () => {
   return fs.existsSync(file) ? fs.readFileSync(file, "utf8").trim().split("\n") : [];
 };
 const authed = { cookie: "session=ok" };
+const SECRET_VALUE = "s3cr3t-VALUE-0123456789";
+const postSecret = (body: unknown, headers: Record<string, string> = {}, raw?: string) =>
+  fetch(`${base}/api/autofund/secret`, {
+    method: "POST",
+    headers: { "content-type": "application/json", ...authed, ...headers },
+    body: raw ?? JSON.stringify(body),
+  });
 const post = (body: unknown, headers: Record<string, string> = {}) =>
   fetch(`${base}/api/autofund/action`, {
     method: "POST",
@@ -95,6 +118,90 @@ try {
   );
   await fetch(`${base}/api/autofund`, { headers: authed });
   assert.equal(calls().length, 1, "dashboard cached for 30 s");
+
+  // Sessions: id regex, relay verb, 3 s cache, 404 mapping.
+  const sessionUrl = (id: string) => `${base}/api/autofund/session/${id}`;
+  assert.equal((await fetch(sessionUrl("plan-1"))).status, 401, "session needs a login");
+  assert.equal((await fetch(`${base}/api/autofund/accounts`)).status, 401, "accounts need a login");
+  const callsBeforeSessions = calls().length;
+  for (const bad of ["..%2Fetc%2Fpasswd", ".hidden", "-x", "a%20b", "a%2Fb", "x".repeat(65)])
+    assert.equal((await fetch(sessionUrl(bad), { headers: authed })).status, 400, bad);
+  assert.equal(calls().length, callsBeforeSessions, "bad session ids never reach ssh");
+  response = await fetch(sessionUrl("plan-1"), { headers: authed });
+  assert.equal(response.status, 200);
+  assert.deepEqual(await response.json(), SESSION);
+  assert.equal(calls().at(-1)?.endsWith("autofund-relay@test.invalid session plan-1"), true);
+  await fetch(sessionUrl("plan-1"), { headers: authed });
+  assert.equal(calls().length, callsBeforeSessions + 1, "session cached for 3 s");
+  response = await fetch(sessionUrl("nope-1"), { headers: authed });
+  assert.equal(response.status, 404);
+  assert.deepEqual(await response.json(), { error: "not found" });
+
+  // Accounts: relay `secrets`, cached.
+  const callsBeforeAccounts = calls().length;
+  response = await fetch(`${base}/api/autofund/accounts`, { headers: authed });
+  assert.equal(response.status, 200);
+  assert.deepEqual(await response.json(), ACCOUNTS);
+  assert.equal(calls().at(-1)?.endsWith("autofund-relay@test.invalid secrets"), true);
+  await fetch(`${base}/api/autofund/accounts`, { headers: authed });
+  assert.equal(calls().length, callsBeforeAccounts + 1, "accounts cached");
+
+  // Secret POST: value goes to stdin only; refused shapes never reach ssh.
+  const callsBeforeSecrets = calls().length;
+  assert.equal((await postSecret({ name: "apify-token", value: "x" }, { cookie: "" })).status, 401);
+  assert.equal(
+    (
+      await postSecret(
+        { name: "apify-token", value: SECRET_VALUE },
+        { origin: "https://evil.example" },
+      )
+    ).status,
+    403,
+    "cross-origin secret refused",
+  );
+  for (const bad of [
+    { name: "other", value: "x" },
+    { name: "play-keystore", value: "x" },
+    { name: "../apify-token", value: "x" },
+    { name: "apify-token; ls", value: "x" },
+    { name: "__proto__", value: "x" },
+    { value: "x" },
+    { name: "apify-token" },
+    { name: "apify-token", value: "" },
+    { name: "apify-token", value: 5 },
+    { name: "apify-token", value: "a".repeat(65_537) },
+  ])
+    assert.equal((await postSecret(bad)).status, 400, JSON.stringify(bad).slice(0, 60));
+  response = await postSecret(null, {}, `{"name":"apify-token","value":"${"a".repeat(100_000)}"}`);
+  assert.equal(response.status, 413, "body over 96 kb");
+  response = await postSecret(null, {}, `{"name":"apify-token","value":"${SECRET_VALUE}`);
+  assert.equal(response.status, 400, "malformed json");
+  assert.equal((await response.text()).includes(SECRET_VALUE), false, "parse error never echoes");
+  assert.equal(calls().length, callsBeforeSecrets, "refused secrets never reach ssh");
+
+  response = await postSecret({ name: "apify-token", value: SECRET_VALUE });
+  assert.equal(response.status, 200);
+  const stored: any = await response.json();
+  assert.equal(stored.ok, true);
+  assert.equal(stored.fingerprint, "ab12cd34");
+  assert.equal(fs.readFileSync(path.join(dir, "stdin-apify-token"), "utf8"), SECRET_VALUE);
+  assert.equal(calls().at(-1)?.endsWith("autofund-relay@test.invalid secret apify-token"), true);
+  assert.equal(fs.readFileSync(path.join(dir, "argv.log"), "utf8").includes(SECRET_VALUE), false);
+  assert.equal(
+    JSON.stringify(stored).includes(SECRET_VALUE),
+    false,
+    "reply never echoes the value",
+  );
+  const accountCalls = () => calls().filter((line) => line.endsWith(" secrets")).length;
+  const accountsBefore = accountCalls();
+  await fetch(`${base}/api/autofund/accounts`, { headers: authed });
+  assert.equal(accountCalls(), accountsBefore + 1, "secret POST cleared the accounts cache");
+  const hackerone = JSON.stringify({ username: "bob", token: "t".repeat(24) });
+  assert.equal((await postSecret({ name: "hackerone", value: hackerone })).status, 200);
+  assert.equal(fs.readFileSync(path.join(dir, "stdin-hackerone"), "utf8"), hackerone);
+  response = await postSecret({ name: "play-sa", value: "refuse-me" });
+  assert.equal(response.status, 400, "relay refusal maps to 400");
+  assert.deepEqual(await response.json(), { error: "invalid format" });
 
   response = await post({ verb: "revenue", args: ["ad_sense", "12.50"] });
   assert.equal(response.status, 200);

@@ -4,6 +4,24 @@ const REFRESH_MS = 60000;
 const DECISIONS_STEP = 20;
 const HORIZON_ORDER = ["24h", "7d", "1m", "1y"];
 const AMOUNT_RE = /^\d+(\.\d+)?$/;
+const SESSION_POLL_MS = 5000;
+const MAX_LEVEL = 8;
+const SESSION_TONE = {
+  running: "accent",
+  finished: "ok",
+  failed: "bad",
+  timed_out: "bad",
+  killed: "bad",
+  rate_limited: "warn",
+};
+const ACCOUNT_LABEL = {
+  "apify-token": "Apify token",
+  hackerone: "HackerOne API token",
+  "play-sa": "Google Play service account",
+  "play-keystore": "Play upload keystore",
+};
+const AAB_COMMAND =
+  "ssh vps 'sudo cat /var/lib/autofund-revenue/play/<id>/app-release.aab' > app.aab";
 
 let data = null;
 let timer = null;
@@ -15,6 +33,10 @@ let pendingRun = null;
 let Chart = null;
 let chart = null;
 let toastTimer = null;
+let drawerId = null;
+let drawerTimer = null;
+let drawerSeq = 0;
+const accountCards = new Map();
 
 const $ = (id) => document.getElementById(id);
 const el = (tag, cls, text) => {
@@ -428,6 +450,411 @@ function onRevenueSubmit(event) {
   });
 }
 
+// ---------- sessions and swarm ----------
+
+const compact = (n) => {
+  const num = Number(n);
+  if (!Number.isFinite(num)) return "n/a";
+  if (num >= 1e6) return `${(num / 1e6).toFixed(1)}M`;
+  if (num >= 1e3) return `${(num / 1e3).toFixed(1)}k`;
+  return String(Math.round(num));
+};
+
+/** Planner -> sessions by parent; a parent missing from the newest-30 window makes its child a root. */
+function sessionRows(list) {
+  const known = new Set(list.map((s) => s.task_id));
+  const kids = new Map();
+  const roots = [];
+  for (const item of list) {
+    if (item.parent && item.parent !== item.task_id && known.has(item.parent)) {
+      kids.set(item.parent, [...(kids.get(item.parent) || []), item]);
+    } else roots.push(item);
+  }
+  const rows = [];
+  const seen = new Set();
+  const walk = (item, level) => {
+    if (seen.has(item.task_id)) return;
+    seen.add(item.task_id);
+    rows.push({ item, level: Math.min(level, MAX_LEVEL) });
+    const children = (kids.get(item.task_id) || []).slice().reverse();
+    for (const child of children) walk(child, level + 1);
+  };
+  for (const root of roots) walk(root, 0);
+  for (const item of list) walk(item, 0);
+  return rows;
+}
+
+function statusPill(status) {
+  const node = el("span", "af-pill");
+  pill(node, String(status || "unknown").replace("_", " "), SESSION_TONE[status] || "");
+  return node;
+}
+
+function sessionStats(item) {
+  const parts = [
+    `${compact(item.tokens_total)} tokens`,
+    `${usd(item.api_equivalent_usd)} API-eq`,
+    `5h ${pct(item.five_hour)}`,
+  ];
+  return parts.join(" · ");
+}
+
+function subagentRow(sub) {
+  const row = el("li", "af-sub-row");
+  row.append(statusPill(sub.status), el("span", null, sub.description || sub.subagent_type));
+  if (sub.subagent_type) row.append(el("small", null, sub.subagent_type));
+  return row;
+}
+
+function sessionNode({ item, level }) {
+  const node = el("li", "af-node");
+  node.style.setProperty("--lvl", String(level));
+  const open = el("button", "af-sess");
+  open.type = "button";
+  open.setAttribute("aria-label", `Open session ${item.task_id}`);
+  open.onclick = () => openSession(item.task_id);
+  const top = el("span", "af-line");
+  top.append(el("b", null, item.kind), statusPill(item.status));
+  const id = el("code", "af-mono", item.task_id);
+  open.append(top, id, el("span", "af-sub", sessionStats(item)));
+  if (item.last_event?.summary) {
+    open.append(
+      el("span", "af-sub af-last", `${item.last_event.kind}: ${item.last_event.summary}`),
+    );
+  }
+  node.append(open);
+  const subs = item.subagents || [];
+  if (subs.length) {
+    const list = el("ul", "af-subs");
+    list.append(...subs.map(subagentRow));
+    node.append(list);
+  }
+  return node;
+}
+
+function renderSessions() {
+  const panel = $("sessions");
+  const list = data.sessions;
+  panel.hidden = !Array.isArray(list);
+  if (panel.hidden) return;
+  const swarm = data.swarm;
+  $("s-swarm").textContent = swarm
+    ? `${swarm.running}/${swarm.max_concurrent} running${swarm.queued == null ? "" : `, ${swarm.queued} queued`}`
+    : "";
+  emptyOr($("s-tree"), $("s-empty"), list.length);
+  $("s-tree").replaceChildren(...sessionRows(list).map(sessionNode));
+}
+
+// ---------- session drawer ----------
+
+function textBlock(title, text) {
+  const wrap = el("div", "af-block");
+  wrap.append(el("h3", "af-h3", title), el("pre", null, text));
+  return wrap;
+}
+
+function eventCard(event) {
+  const card = el("li", "af-card");
+  const top = el("div", "af-line");
+  top.append(el("span", "af-tag", event.kind));
+  const who = [event.agent_id, event.tool].filter(Boolean).join(" / ");
+  if (who) top.append(el("small", "af-sub", who));
+  top.append(el("small", "af-sub", stamp(event.ts)));
+  card.append(top, el("div", "af-evt", event.summary || ""));
+  return card;
+}
+
+function sessionStatCells(rec) {
+  const tok = rec.tokens || {};
+  return [
+    gridCell("Turns", String(rec.turns ?? 0)),
+    gridCell("API-equivalent", usd(rec.api_equivalent_usd)),
+    gridCell("Real cost", usd(rec.real_usd)),
+    gridCell("5h window", pct(rec.five_hour)),
+    gridCell("7d window", pct(rec.seven_day)),
+    gridCell("Input tokens", compact(tok.input_tokens)),
+    gridCell("Output tokens", compact(tok.output_tokens)),
+    gridCell("Cache read", compact(tok.cache_read_input_tokens)),
+    gridCell("Denials", String(rec.permission_denials ?? 0)),
+  ];
+}
+
+function drawerTexts(rec) {
+  const blocks = [];
+  if (rec.brief) blocks.push(textBlock("Brief", rec.brief));
+  if (rec.error) blocks.push(textBlock("Error", rec.error));
+  if (rec.final_result) blocks.push(textBlock("Final result", rec.final_result));
+  if (rec.handoff) blocks.push(textBlock("Handoff", rec.handoff));
+  return blocks;
+}
+
+function drawerEvents(rec) {
+  const events = (rec.events || []).slice().reverse();
+  const wrap = el("div", "af-block");
+  const total = rec.event_count ?? events.length;
+  wrap.append(el("h3", "af-h3", `Events (latest ${events.length} of ${total})`));
+  if (!events.length) {
+    wrap.append(el("p", "af-note", "No events recorded."));
+    return wrap;
+  }
+  const list = el("ul", "af-list");
+  list.append(...events.map(eventCard));
+  wrap.append(list);
+  return wrap;
+}
+
+function renderDrawer(rec) {
+  $("sd-title").textContent = rec.task_id;
+  const model = rec.model ? ` · ${rec.model}` : "";
+  const line = `${rec.kind} · ${rec.runner}${model} · started ${stamp(rec.started_at)}`;
+  $("sd-meta").textContent = `${line} · updated ${stamp(rec.updated_at)}`;
+  const status = el("div", "af-line");
+  status.append(statusPill(rec.status));
+  if (rec.parent) status.append(el("small", "af-sub", `parent ${rec.parent}`));
+  const grid = el("dl", "af-grid");
+  grid.append(...sessionStatCells(rec));
+  const subs = rec.subagents || [];
+  const subBlock = el("div", "af-block");
+  if (subs.length) {
+    const list = el("ul", "af-subs");
+    list.append(...subs.map(subagentRow));
+    subBlock.append(el("h3", "af-h3", "Subagents"), list);
+  }
+  const dialog = $("s-drawer");
+  const scroll = dialog.scrollTop;
+  $("sd-body").replaceChildren(status, grid, subBlock, ...drawerTexts(rec), drawerEvents(rec));
+  dialog.scrollTop = scroll;
+}
+
+function stopDrawerPoll() {
+  clearInterval(drawerTimer);
+  drawerTimer = null;
+}
+
+async function fetchDrawer(id) {
+  const seq = ++drawerSeq;
+  try {
+    const rec = await api(`/api/autofund/session/${encodeURIComponent(id)}`);
+    if (seq !== drawerSeq || drawerId !== id) return;
+    $("sd-err").hidden = true;
+    renderDrawer(rec);
+    if (rec.status !== "running") stopDrawerPoll();
+  } catch (err) {
+    if (seq !== drawerSeq || drawerId !== id) return;
+    $("sd-err").textContent = err.status === 404 ? "Session not found." : err.message;
+    $("sd-err").hidden = false;
+  }
+}
+
+function openSession(id) {
+  drawerId = id;
+  $("sd-title").textContent = id;
+  $("sd-meta").textContent = "Loading";
+  $("sd-err").hidden = true;
+  $("sd-body").replaceChildren();
+  if (!$("s-drawer").open) $("s-drawer").showModal();
+  stopDrawerPoll();
+  fetchDrawer(id);
+  drawerTimer = setInterval(() => fetchDrawer(id), SESSION_POLL_MS);
+}
+
+function closeDrawer() {
+  drawerId = null;
+  drawerSeq++;
+  stopDrawerPoll();
+}
+
+// ---------- accounts ----------
+
+const formField = (label, control) => {
+  const wrap = el("label", "af-field");
+  wrap.append(el("span", null, label), control);
+  return wrap;
+};
+
+function secretInput(type) {
+  const input = el("input", "input");
+  input.type = type;
+  input.autocomplete = "off";
+  input.spellcheck = false;
+  input.setAttribute("autocapitalize", "none");
+  return input;
+}
+
+function secretArea() {
+  const area = el("textarea", "input af-area");
+  area.rows = 5;
+  area.autocomplete = "off";
+  area.spellcheck = false;
+  area.setAttribute("autocapitalize", "none");
+  return area;
+}
+
+/** Each builder returns { controls, read, clear }. read() returns the exact string to send or throws a short message. */
+function apifyForm() {
+  const token = secretInput("password");
+  return {
+    controls: [formField("Apify API token", token)],
+    read: () => {
+      const value = token.value.trim();
+      if (!value) throw new Error("Enter the token.");
+      return value;
+    },
+    clear: () => {
+      token.value = "";
+    },
+  };
+}
+
+function hackeroneForm() {
+  const user = secretInput("text");
+  const token = secretInput("password");
+  return {
+    controls: [formField("HackerOne username", user), formField("API token", token)],
+    read: () => {
+      const username = user.value.trim();
+      const secret = token.value.trim();
+      if (!username || !secret) throw new Error("Enter the username and the API token.");
+      return JSON.stringify({ username, token: secret });
+    },
+    clear: () => {
+      user.value = "";
+      token.value = "";
+    },
+  };
+}
+
+function playSaForm() {
+  const area = secretArea();
+  const file = secretInput("file");
+  file.accept = ".json,application/json";
+  file.onchange = async () => {
+    const picked = file.files?.[0];
+    if (picked) area.value = await picked.text();
+  };
+  return {
+    controls: [formField("Service account JSON file", file), formField("Or paste the JSON", area)],
+    read: () => {
+      const text = area.value.trim();
+      try {
+        if (!text || typeof JSON.parse(text) !== "object") throw new Error();
+      } catch {
+        throw new Error("Choose or paste the service account JSON.");
+      }
+      return text;
+    },
+    clear: () => {
+      area.value = "";
+      file.value = "";
+    },
+  };
+}
+
+const FORMS = { "apify-token": apifyForm, hackerone: hackeroneForm, "play-sa": playSaForm };
+
+async function storeSecret(name, value) {
+  const res = await api("/api/autofund/secret", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ name, value }),
+  });
+  if (res.ok === false) throw new Error(res.error || "The autofund host refused the value.");
+  return res;
+}
+
+function onSecretSubmit(name, form, error) {
+  return (event) => {
+    event.preventDefault();
+    let value = "";
+    try {
+      value = form.read();
+    } catch (err) {
+      error.textContent = err.message;
+      error.hidden = false;
+      return;
+    }
+    error.hidden = true;
+    ask({
+      title: `Store ${ACCOUNT_LABEL[name] || name}?`,
+      body: "This replaces any stored value. It is sent to the VPS over SSH and never shown again; only a fingerprint stays visible.",
+      okLabel: "Store",
+      run: async () => {
+        form.clear();
+        const res = await storeSecret(name, value);
+        value = "";
+        loadAccounts();
+        return `Stored ${ACCOUNT_LABEL[name] || name}${res.fingerprint ? ` (${res.fingerprint})` : ""}`;
+      },
+    });
+  };
+}
+
+function secretForm(name) {
+  const form = FORMS[name]();
+  const details = el("details");
+  details.append(el("summary", null, "Set or replace"));
+  const box = el("form", "af-form");
+  box.autocomplete = "off";
+  const error = el("p", "af-err");
+  error.setAttribute("role", "alert");
+  error.hidden = true;
+  const submit = el("button", "btn primary", "Store securely");
+  submit.type = "submit";
+  box.append(...form.controls, error, submit);
+  box.onsubmit = onSecretSubmit(name, form, error);
+  details.append(box);
+  return details;
+}
+
+function accountCard(account) {
+  const card = el("li", "af-card");
+  const top = el("div", "af-line");
+  const status = el("span", "af-pill");
+  const detail = el("div", "af-sub");
+  top.append(el("b", null, ACCOUNT_LABEL[account.name] || account.name), status);
+  if (!account.settable) top.append(el("span", "af-tag", "read-only"));
+  card.append(top, detail);
+  if (account.settable && FORMS[account.name]) card.append(secretForm(account.name));
+  return { card, status, detail };
+}
+
+function accountDetail(account) {
+  if (!account.present) {
+    return account.settable ? "Not provided yet." : "Not generated on the VPS yet.";
+  }
+  const label = account.settable ? "Fingerprint" : "Upload cert fingerprint";
+  const stored = account.stored_at ? ` · stored ${stamp(account.stored_at)}` : "";
+  return `${label} ${account.fingerprint || "n/a"}${stored}`;
+}
+
+function renderAccounts(list) {
+  const cards = [];
+  for (const account of list) {
+    let entry = accountCards.get(account.name);
+    if (!entry) {
+      entry = accountCard(account);
+      accountCards.set(account.name, entry);
+    }
+    pill(entry.status, account.present ? "Present" : "Missing", account.present ? "ok" : "warn");
+    entry.detail.textContent = accountDetail(account);
+    cards.push(entry.card);
+  }
+  const box = $("acc-list");
+  if (cards.some((card, i) => box.children[i] !== card) || box.children.length !== cards.length)
+    box.replaceChildren(...cards);
+}
+
+async function loadAccounts() {
+  try {
+    const res = await api("/api/autofund/accounts");
+    $("acc-err").hidden = true;
+    renderAccounts(res.accounts || []);
+  } catch (err) {
+    $("acc-err").textContent = `Could not load accounts: ${err.message}`;
+    $("acc-err").hidden = false;
+  }
+}
+
 // ---------- agents ----------
 
 function meter(label, value, warn) {
@@ -632,6 +1059,7 @@ function render() {
   renderMeta();
   renderProjection();
   renderMoney();
+  renderSessions();
   renderAgents();
   renderReview();
   renderAlerts();
@@ -669,6 +1097,7 @@ async function load() {
     data = await api("/api/autofund");
     loadedAt = Date.now();
     render();
+    loadAccounts();
   } catch (err) {
     onLoadError(err);
   } finally {
@@ -696,6 +1125,10 @@ $("refresh").onclick = load;
 $("c-cancel").onclick = () => $("confirm").close();
 $("c-ok").onclick = onConfirm;
 $("rev-form").onsubmit = onRevenueSubmit;
+$("sd-close").onclick = () => $("s-drawer").close();
+$("s-drawer").addEventListener("close", closeDrawer);
+$("acc-cmd").textContent = AAB_COMMAND;
+$("acc-copy").onclick = (e) => copyText(AAB_COMMAND, e.currentTarget);
 $("dep-copy").onclick = (e) => copyText(data.safe_address, e.currentTarget);
 $("k-copy").onclick = (e) => copyText(data.kill_command, e.currentTarget);
 $("d-more").onclick = () => {

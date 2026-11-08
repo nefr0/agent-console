@@ -482,7 +482,7 @@
           "id": "af-page",
           "label": "Autofund page",
           "tech": "public/autofund.*",
-          "desc": "Balance, projections, agents, review queue, alerts, deposit, kill",
+          "desc": "Balance, projections, sessions swarm tree and drawer, accounts handoff, review queue, kill",
           "icon": "layout-dashboard",
           "color": "teal",
           "status": "added"
@@ -491,7 +491,7 @@
           "id": "af-route",
           "label": "Autofund routes",
           "tech": "server/autofund.ts",
-          "desc": "Cached GET, POST actions; session, same-origin, verb allowlist",
+          "desc": "Cached GET, session detail, secret POST via ssh stdin; session, same-origin, allowlist",
           "icon": "route",
           "color": "blue",
           "status": "added"
@@ -500,7 +500,7 @@
           "id": "af-relay",
           "label": "VPS relay",
           "tech": "ssh forced command, autofund-relay user",
-          "desc": "Allowlisted verbs only; talks to 127.0.0.1:8765",
+          "desc": "Allowlisted verbs; secret NAME on stdin to the root intake socket",
           "icon": "key-round",
           "color": "slate",
           "status": "added"
@@ -513,6 +513,14 @@
           "icon": "server",
           "color": "indigo",
           "status": "added"
+        },
+        {
+          "id": "af-intake",
+          "label": "Secret intake",
+          "tech": "autofund repo, systemd socket, root",
+          "desc": "Validates account tokens, encrypts them with systemd-creds",
+          "icon": "lock",
+          "color": "indigo"
         }
       ]
     }
@@ -791,6 +799,7 @@
     {"from": "dp-run", "to": "dp-current", "label": "flip when idle"},
     {"from": "af-page", "to": "af-route", "label": "fetch JSON, actions", "status": "added"},
     {"from": "af-route", "to": "af-relay", "label": "ssh verb", "status": "added"},
-    {"from": "af-relay", "to": "af-web", "label": "HTTP loopback", "status": "added"}
+    {"from": "af-relay", "to": "af-web", "label": "HTTP loopback", "status": "added"},
+    {"from": "af-relay", "to": "af-intake", "label": "secret stdin"}
   ]
 }

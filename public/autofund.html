@@ -52,6 +52,12 @@
         <button class="btn primary" type="submit">Record revenue</button>
       </form>
     </section>
+    <section class="panel af-wide" id="sessions" aria-labelledby="h-sess" hidden>
+      <div class="head"><h2 id="h-sess">Sessions</h2><span class="af-count" id="s-swarm"></span></div>
+      <ul class="af-tree" id="s-tree"></ul>
+      <p class="af-note" id="s-empty" hidden>No sessions yet.</p>
+      <p class="af-foot">Planner, sessions and subagents. Tap a session for its latest events and final result. API-equivalent USD is the usage priced at API rates.</p>
+    </section>
     <section class="panel" id="agents" aria-labelledby="h-agents">
       <div class="head"><h2 id="h-agents">Agents</h2></div>
       <ul class="af-list" id="a-list"></ul>
@@ -78,6 +84,17 @@
       <ul class="af-list" id="d-list"></ul>
       <p class="af-note" id="d-empty" hidden>No decisions yet.</p>
       <button type="button" class="btn block" id="d-more" hidden>Show more</button>
+    </section>
+    <section class="panel af-wide" id="accounts" aria-labelledby="h-acc">
+      <div class="head"><h2 id="h-acc">Accounts</h2></div>
+      <p class="af-note" id="acc-note">Hand over the credentials autofund needs. Values go straight to the VPS and are never shown again; only a fingerprint is kept here.</p>
+      <p class="af-err" id="acc-err" role="alert" hidden></p>
+      <ul class="af-list" id="acc-list"></ul>
+      <div class="af-card af-hint" id="acc-hint">
+        <h3 class="af-h3">First Play upload</h3>
+        <p class="af-note">After the first Play release is signed, download the AAB and upload it by hand in Play Console. Replace the id with the one in the review item.</p>
+        <div class="af-copy"><code class="af-mono" id="acc-cmd"></code><button type="button" class="btn sm" id="acc-copy">Copy</button></div>
+      </div>
     </section>
     <section class="panel" id="deposit" aria-labelledby="h-dep">
       <div class="head"><h2 id="h-dep">Deposit</h2></div>
@@ -106,6 +123,15 @@
     <button type="button" class="btn" id="c-cancel">Cancel</button>
     <button type="button" class="btn primary" id="c-ok">Confirm</button>
   </div>
+</dialog>
+<dialog id="s-drawer" class="af-drawer" aria-labelledby="sd-title">
+  <div class="af-drawer-head">
+    <h2 id="sd-title">Session</h2>
+    <button type="button" class="btn sm" id="sd-close">Close</button>
+  </div>
+  <p class="af-meta" id="sd-meta" role="status"></p>
+  <p class="af-err" id="sd-err" role="alert" hidden></p>
+  <div id="sd-body"></div>
 </dialog>
 <div id="toast" role="status" aria-live="polite" hidden></div>
 <script type="module" src="/autofund.js"></script>
