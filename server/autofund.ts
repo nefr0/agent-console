@@ -2,6 +2,7 @@ import { execFile } from "node:child_process";
 import os from "node:os";
 import path from "node:path";
 import express from "express";
+import { fileEnv } from "./providers/env.ts";
 
 // The autofund dashboard lives on another host. This server only talks to it over SSH with a forced-command key:
 // the relay reads SSH_ORIGINAL_COMMAND and accepts dashboard | approve N | reject N | ack | kill | revenue SRC AMT.
@@ -21,10 +22,10 @@ const ARG_RULES: Record<string, RegExp[]> = {
   revenue: [SRC_ARG, AMT_ARG],
 };
 
-const target = () => process.env.AUTOFUND_SSH_TARGET || "";
-const keyFile = () =>
-  process.env.AUTOFUND_SSH_KEY || path.join(os.homedir(), ".ssh", "id_autofund");
-const sshBin = () => process.env.AUTOFUND_SSH_BIN || "ssh";
+const setting = (name: string) => process.env[name] || fileEnv()[name] || "";
+const target = () => setting("AUTOFUND_SSH_TARGET");
+const keyFile = () => setting("AUTOFUND_SSH_KEY") || path.join(os.homedir(), ".ssh", "id_autofund");
+const sshBin = () => setting("AUTOFUND_SSH_BIN") || "ssh";
 
 class RelayError extends Error {}
 
