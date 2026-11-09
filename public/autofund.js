@@ -16,7 +16,6 @@ const SESSION_TONE = {
 };
 const ACCOUNT_LABEL = {
   "apify-token": "Apify token",
-  "polar-token": "Polar access token",
   "cloudflare-tunnel": "Cloudflare tunnel token",
   hackerone: "HackerOne API token",
   "play-sa": "Google Play service account",
@@ -692,8 +691,6 @@ function secretArea() {
   return area;
 }
 
-const POLAR_HELP =
-  "Polar > Settings > Developers > New token (products, files, benefits, checkout links write; orders read)";
 const CLOUDFLARE_HELP =
   "Cloudflare > Networking > Tunnels > Create > copy token; add route shop.<domain> -> http://localhost:8766";
 
@@ -713,7 +710,6 @@ function tokenForm(label, help) {
   };
 }
 
-const polarForm = () => tokenForm("Polar access token", POLAR_HELP);
 const cloudflareForm = () => tokenForm("Cloudflare tunnel token", CLOUDFLARE_HELP);
 
 /** Each builder returns { controls, read, clear }. read() returns the exact string to send or throws a short message. */
@@ -778,7 +774,6 @@ function playSaForm() {
 
 const FORMS = {
   "apify-token": apifyForm,
-  "polar-token": polarForm,
   "cloudflare-tunnel": cloudflareForm,
   hackerone: hackeroneForm,
   "play-sa": playSaForm,
