@@ -1,17 +1,44 @@
 import assert from "node:assert/strict";
-import { execFileSync } from "node:child_process";
+import childProcess from "node:child_process";
 import fs from "node:fs";
+import { syncBuiltinESMExports } from "node:module";
 import os from "node:os";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { WorktreeCleanup } from "../server/worktree-cleanup.ts";
 import type { WorktreeJob, WorktreeThread } from "../server/worktree-contracts.ts";
 
 const temporary = fs.mkdtempSync(path.join(os.tmpdir(), "worktree-facade-"));
+const originalSpawn = childProcess.spawn;
+const productionEngine = fileURLToPath(
+  new URL("../scripts/worktree-cleanup-engine.py", import.meta.url),
+);
+const testBootstrap = fileURLToPath(new URL("./worktree-cleanup-bootstrap.py", import.meta.url));
+let interceptedSpawns = 0;
+childProcess.spawn = ((...spawnArguments: Parameters<typeof originalSpawn>) => {
+  const [executable, arguments_, options] = spawnArguments;
+  if (
+    executable === "/usr/bin/python3" &&
+    Array.isArray(arguments_) &&
+    arguments_[0] === "-I" &&
+    path.resolve(arguments_[1] ?? "") === productionEngine
+  ) {
+    interceptedSpawns++;
+    return originalSpawn(
+      executable,
+      [arguments_[0], testBootstrap, ...arguments_.slice(2)],
+      options,
+    );
+  }
+  return originalSpawn(...spawnArguments);
+}) as typeof originalSpawn;
+syncBuiltinESMExports();
 const repo = path.join(temporary, "repo");
 const stateDir = path.join(temporary, "state");
 fs.mkdirSync(repo);
 const git = (...arguments_: string[]) =>
-  execFileSync("git", ["-C", repo, ...arguments_], { stdio: "pipe" })
+  childProcess
+    .execFileSync("git", ["-C", repo, ...arguments_], { stdio: "pipe" })
     .toString()
     .trim();
 git("init", "-q");
@@ -242,11 +269,17 @@ try {
   fs.writeFileSync(corrupt, "unreadable JSON");
   assert.throws(() => cleanup.status({ job: active.job }), /Unreadable/);
   fs.writeFileSync(corrupt, preserved);
+  assert.ok(interceptedSpawns > 0, "The test bootstrap replaced production-engine launches");
   console.log(
     "worktree cleanup facade: serialized jobs, private persistence, caller validation, fresh context and interruption recovery passed",
   );
 } finally {
-  cleanup.close();
-  for (const peer of peers) peer.close();
-  fs.rmSync(temporary, { recursive: true, force: true });
+  try {
+    cleanup.close();
+    for (const peer of peers) peer.close();
+    fs.rmSync(temporary, { recursive: true, force: true });
+  } finally {
+    childProcess.spawn = originalSpawn;
+    syncBuiltinESMExports();
+  }
 }
