@@ -18,7 +18,7 @@ const TASK_ID = /^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$/;
 const SESSION_TTL = 3_000;
 const SESSION_CACHE_MAX = 100;
 const ACCOUNTS_TTL = 60_000;
-const SECRET_NAMES = ["apify-token", "cloudflare-tunnel", "hackerone", "play-sa"];
+const SECRET_NAMES = ["apify-token", "cloudflare-tunnel", "hackerone", "play-sa", "razorpay"];
 const SECRET_MAX = 65_536;
 const SECRET_BODY_LIMIT = "96kb";
 

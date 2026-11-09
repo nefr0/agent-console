@@ -226,6 +226,22 @@ try {
     assert.equal(fs.readFileSync(path.join(dir, `stdin-${name}`), "utf8"), SECRET_VALUE);
     assert.equal(calls().at(-1)?.endsWith(`autofund-relay@test.invalid secret ${name}`), true);
   }
+  const razorpay = JSON.stringify({
+    key_id: "rzp_test_abcdefghijklmn",
+    key_secret: SECRET_VALUE,
+    webhook_secret: "whsec-0123456789abcdef",
+  });
+  response = await postSecret({ name: "razorpay", value: razorpay });
+  const razorpayReply = await response.text();
+  assert.equal(response.status, 200, "razorpay is an allowed name");
+  assert.equal(fs.readFileSync(path.join(dir, "stdin-razorpay"), "utf8"), razorpay);
+  assert.equal(calls().at(-1)?.endsWith("autofund-relay@test.invalid secret razorpay"), true);
+  assert.equal(razorpayReply.includes(SECRET_VALUE), false, "razorpay reply never echoes secret");
+  assert.equal(
+    razorpayReply.includes("whsec-0123456789abcdef"),
+    false,
+    "reply never echoes webhook",
+  );
   assert.equal((await postSecret({ name: "polar-token", value: "x" })).status, 400);
   assert.equal((await postSecret({ name: "unknown-token", value: "x" })).status, 400);
   response = await postSecret({ name: "play-sa", value: "refuse-me" });
