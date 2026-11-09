@@ -12,7 +12,6 @@ const ACCOUNTS = {
   ok: true,
   accounts: [
     { name: "apify-token", present: false, fingerprint: null, stored_at: null, settable: true },
-    { name: "polar-token", present: false, fingerprint: null, stored_at: null, settable: true },
     {
       name: "cloudflare-tunnel",
       present: false,
@@ -221,13 +220,13 @@ try {
   const hackerone = JSON.stringify({ username: "bob", token: "t".repeat(24) });
   assert.equal((await postSecret({ name: "hackerone", value: hackerone })).status, 200);
   assert.equal(fs.readFileSync(path.join(dir, "stdin-hackerone"), "utf8"), hackerone);
-  for (const name of ["polar-token", "cloudflare-tunnel"]) {
+  for (const name of ["cloudflare-tunnel"]) {
     response = await postSecret({ name, value: SECRET_VALUE });
     assert.equal(response.status, 200, `${name} accepted`);
     assert.equal(fs.readFileSync(path.join(dir, `stdin-${name}`), "utf8"), SECRET_VALUE);
     assert.equal(calls().at(-1)?.endsWith(`autofund-relay@test.invalid secret ${name}`), true);
   }
-  assert.equal((await postSecret({ name: "polar-token-x", value: "x" })).status, 400);
+  assert.equal((await postSecret({ name: "polar-token", value: "x" })).status, 400);
   assert.equal((await postSecret({ name: "unknown-token", value: "x" })).status, 400);
   response = await postSecret({ name: "play-sa", value: "refuse-me" });
   assert.equal(response.status, 400, "relay refusal maps to 400");
