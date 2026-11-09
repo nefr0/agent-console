@@ -41,6 +41,8 @@ const READ_ONLY_TOOLS = [
   "map_status",
   "map_show",
   "map_spec",
+  "worktree_preview",
+  "worktree_status",
   "todo_list",
 ];
 

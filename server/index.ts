@@ -154,6 +154,8 @@ import {
   startIssue,
 } from "./window-dispatch.ts";
 import { createOpener, loadOpenerConfig } from "./window-opener.ts";
+import { WorktreeCleanup } from "./worktree-cleanup.ts";
+import type { WorktreeCaller, WorktreeJob } from "./worktree-contracts.ts";
 
 const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
 const PUBLIC_DIR = path.join(ROOT, "public");
@@ -256,6 +258,16 @@ const ideas = new Ideas();
 const mapsService = createMapsService({ base: DATA_DIR });
 const brainGraph = new BrainGraph();
 const sessionSearch = new SessionSearch(DATA_DIR);
+const worktreeCleanup = new WorktreeCleanup({
+  dataDir: DATA_DIR,
+  home: os.homedir(),
+  stateDir: path.join(DATA_DIR, "private-state"),
+  getThreads: () =>
+    threads
+      .list()
+      .map(({ id, archived, cwd, status }) => ({ id, archived: !!archived, cwd, status })),
+  evidence: () => sessionSearch.worktreeEvidence(),
+});
 const transcriptRedaction = new TranscriptRedaction({
   dataDir: DATA_DIR,
   threads,
@@ -884,6 +896,29 @@ async function piResearch(input: any, thread?: string): Promise<string> {
 }
 
 const cliSearch = new CliSearch();
+
+function worktreeTool(
+  name: string,
+  input: Record<string, unknown>,
+  thread: string | undefined,
+): WorktreeJob | undefined {
+  if (!["worktree_preview", "worktree_apply", "worktree_status"].includes(name)) return;
+  const threadInfo = thread ? threads.get(thread) : undefined;
+  const caller: WorktreeCaller = {
+    id: thread || "",
+    archived: !!threadInfo?.archived,
+    issueRun: threadInfo?.issueRun,
+  };
+  if (name === "worktree_preview")
+    return worktreeCleanup.preview(input as { repo: string }, caller);
+  if (name === "worktree_apply") {
+    if (!thread || !threadInfo || caller.archived || caller.issueRun)
+      throw new Error("Apply requires an active manual caller thread.");
+    return worktreeCleanup.apply(input as { plan: string; paths: string[] }, caller);
+  }
+  return worktreeCleanup.status(input as { job: string });
+}
+
 app.post("/api/agent-tools/:name", express.json({ limit: "1mb" }), async (req, res) => {
   const header = req.headers["x-agent-console-thread"];
   const gate = gateToolCall(
@@ -898,28 +933,31 @@ app.post("/api/agent-tools/:name", express.json({ limit: "1mb" }), async (req, r
   try {
     if (gate.error) throw new Error(gate.error);
     const input = req.body ?? {};
-    const result = ["thread_list", "thread_send"].includes(req.params.name)
-      ? await threads.threadTool(req.params.name, thread, input)
-      : req.params.name.startsWith("todo_")
-        ? threads.todoTool(req.params.name, thread, input)
-        : req.params.name === "session_redact"
-          ? transcriptRedaction.tool(input, thread ? threads.get(thread) : undefined)
-          : req.params.name === "cli_search"
-            ? cliSearch.search(input)
-            : req.params.name === "session_search"
-              ? await sessionSearch.search(input)
-              : req.params.name === "session_read"
-                ? await sessionSearch.read(input)
-                : req.params.name === "pi_research"
-                  ? await piResearch(input, thread)
-                  : isConsoleCliTool(req.params.name)
-                    ? await consoleCliTool(req.params.name, input, {
-                        ideas,
-                        maps: mapsService,
-                        schedules,
-                        sessionSearch,
-                      })
-                    : schedules.tool(req.params.name, thread, input);
+    const name = req.params.name;
+    const result =
+      worktreeTool(name, input, thread) ??
+      (["thread_list", "thread_send"].includes(req.params.name)
+        ? await threads.threadTool(req.params.name, thread, input)
+        : req.params.name.startsWith("todo_")
+          ? threads.todoTool(req.params.name, thread, input)
+          : req.params.name === "session_redact"
+            ? transcriptRedaction.tool(input, thread ? threads.get(thread) : undefined)
+            : req.params.name === "cli_search"
+              ? cliSearch.search(input)
+              : req.params.name === "session_search"
+                ? await sessionSearch.search(input)
+                : req.params.name === "session_read"
+                  ? await sessionSearch.read(input)
+                  : req.params.name === "pi_research"
+                    ? await piResearch(input, thread)
+                    : isConsoleCliTool(req.params.name)
+                      ? await consoleCliTool(req.params.name, input, {
+                          ideas,
+                          maps: mapsService,
+                          schedules,
+                          sessionSearch,
+                        })
+                      : schedules.tool(req.params.name, thread, input));
     res.setHeader("Cache-Control", "no-store");
     res.json(result);
   } catch (e: any) {
@@ -2563,6 +2601,7 @@ async function shutdown(sig: string) {
   prStore.stop();
   stopPrSignals();
   shipJobs.stop();
+  worktreeCleanup.close();
   await Promise.all([settled(transcriptRedaction.close(), 200), settled(answered, 100)]);
   latency?.close();
   process.exit(0);

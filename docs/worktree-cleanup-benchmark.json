@@ -1,0 +1,187 @@
+{
+  "scenario": "Identify archived-thread worktrees in a six-checkout scratch repository without deleting anything.",
+  "baseline": "Manual Git worktree inventory and canonical thread-log inspection.",
+  "candidate": "console-tool worktrees preview through an authenticated read-only HTTP fixture using the production implementation.",
+  "protocol": {
+    "model": "haiku",
+    "samplesPerArm": 4,
+    "concurrency": 1,
+    "tools": [
+      "Read",
+      "Bash"
+    ],
+    "mcp": "none",
+    "graderHash": "8ac4bf2ffdd5",
+    "expectedEligible": "archived-dirty",
+    "expectedRetained": 5,
+    "cache": "Candidate index persisted across trials; the first index build was measured separately."
+  },
+  "limitations": "Small local fixture and sequential trials; no statistical significance established. This measures preview investigation, not apply or production deployment. Later lifecycle and path-indexing changes were verified separately.",
+  "trials": [
+    {
+      "task": "archived-eligibility",
+      "arm": "A",
+      "index": 0,
+      "pass": true,
+      "input": 29317,
+      "output": 1174,
+      "turns": 4,
+      "cost": 0.0020860600000000003,
+      "duration": 14.9
+    },
+    {
+      "task": "archived-eligibility",
+      "arm": "B",
+      "index": 0,
+      "pass": true,
+      "input": 19659,
+      "output": 392,
+      "turns": 3,
+      "cost": 0.00124927,
+      "duration": 8.2
+    },
+    {
+      "task": "archived-eligibility",
+      "arm": "A",
+      "index": 1,
+      "pass": true,
+      "input": 29803,
+      "output": 1204,
+      "turns": 4,
+      "cost": 0.00214905,
+      "duration": 9.6
+    },
+    {
+      "task": "archived-eligibility",
+      "arm": "B",
+      "index": 1,
+      "pass": true,
+      "input": 30043,
+      "output": 673,
+      "turns": 4,
+      "cost": 0.0018886100000000002,
+      "duration": 9
+    },
+    {
+      "task": "archived-eligibility",
+      "arm": "A",
+      "index": 2,
+      "pass": true,
+      "input": 29795,
+      "output": 1278,
+      "turns": 4,
+      "cost": 0.0021850199999999998,
+      "duration": 10.2
+    },
+    {
+      "task": "archived-eligibility",
+      "arm": "B",
+      "index": 2,
+      "pass": true,
+      "input": 19643,
+      "output": 320,
+      "turns": 3,
+      "cost": 0.0012096900000000002,
+      "duration": 5.7
+    },
+    {
+      "task": "archived-eligibility",
+      "arm": "A",
+      "index": 3,
+      "pass": true,
+      "input": 21660,
+      "output": 948,
+      "turns": 3,
+      "cost": 0.0018984000000000002,
+      "duration": 9.8
+    },
+    {
+      "task": "archived-eligibility",
+      "arm": "B",
+      "index": 3,
+      "pass": true,
+      "input": 30087,
+      "output": 697,
+      "turns": 4,
+      "cost": 0.0019044700000000001,
+      "duration": 10.4
+    }
+  ],
+  "summary": [
+    {
+      "task": "archived-eligibility",
+      "metric": "input",
+      "A_median": 29556,
+      "A_iqr": 2394.25,
+      "B_median": 24851,
+      "B_iqr": 10399,
+      "delta_pct": -15.918933549871431,
+      "p": 1,
+      "pass_A": "4/4",
+      "pass_B": "4/4"
+    },
+    {
+      "task": "archived-eligibility",
+      "metric": "turns",
+      "A_median": 4,
+      "A_iqr": 0.25,
+      "B_median": 3.5,
+      "B_iqr": 1,
+      "delta_pct": -12.5,
+      "p": 1,
+      "pass_A": "4/4",
+      "pass_B": "4/4"
+    },
+    {
+      "task": "archived-eligibility",
+      "metric": "cost",
+      "A_median": 0.002117555,
+      "A_iqr": 0.00011889749999999992,
+      "B_median": 0.00156894,
+      "B_iqr": 0.0006532,
+      "delta_pct": -25.90794572041813,
+      "p": 0.05714285714285714,
+      "pass_A": "4/4",
+      "pass_B": "4/4"
+    }
+  ],
+  "validation": {
+    "fixture": {
+      "job": "df1c0c10-c363-4ae3-b2aa-15b7ca4ce330",
+      "elapsedMs": 739,
+      "stale": false,
+      "traversal": {
+        "logsRead": 0,
+        "bytesRead": 0,
+        "eventsRead": 0
+      },
+      "counts": {
+        "total": 6,
+        "eligible": 1,
+        "skipped": 5,
+        "backedUp": 0,
+        "removed": 0,
+        "failed": 0
+      }
+    },
+    "real": {
+      "job": "d1c29fdf-05a8-4335-9af9-f9e3c6e00018",
+      "elapsedMs": 9668,
+      "stale": false,
+      "traversal": {
+        "logsRead": 1,
+        "bytesRead": 881,
+        "eventsRead": 3
+      },
+      "counts": {
+        "total": 67,
+        "eligible": 0,
+        "skipped": 67,
+        "backedUp": 0,
+        "removed": 0,
+        "failed": 0
+      },
+      "mode": "Read-only metadata copy and isolated ownership database; canonical logs read through a symlink. No production database writes or removals."
+    }
+  }
+}
