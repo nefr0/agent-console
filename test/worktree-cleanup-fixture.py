@@ -8,6 +8,7 @@ import uuid
 from pathlib import Path
 
 ENGINE = Path(__file__).resolve().parents[1] / "scripts/worktree-cleanup-engine.py"
+BOOTSTRAP = Path(__file__).resolve().with_name("worktree-cleanup-bootstrap.py")
 SPEC = importlib.util.spec_from_file_location("cleanup_engine", ENGINE)
 MODULE = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(MODULE)
@@ -54,7 +55,15 @@ class CleanupFixture:
             .strip()
         )
 
-    def run_job(self, action, before_context=None, disconnect_on_context=None, **fields):
+    def run_job(
+        self,
+        action,
+        before_context=None,
+        disconnect_on_context=None,
+        process_paths=None,
+        fail_process_scan=False,
+        **fields,
+    ):
         request = {
             "action": action,
             "job": str(uuid.uuid4()),
@@ -63,8 +72,13 @@ class CleanupFixture:
             "caller": {"id": "caller"},
             **fields,
         }
+        command = ["/usr/bin/python3", "-I", str(BOOTSTRAP)]
+        for process_path in process_paths or []:
+            command.extend(("--process-path", process_path))
+        if fail_process_scan:
+            command.append("--fail-process-scan")
         worker = subprocess.Popen(
-            ["/usr/bin/python3", "-I", str(ENGINE)],
+            command,
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
@@ -106,8 +120,8 @@ class CleanupFixture:
         self.assertIsNotNone(result)
         return result
 
-    def preview(self):
-        return self.run_job("preview", repo=str(self.repo))
+    def preview(self, **fields):
+        return self.run_job("preview", repo=str(self.repo), **fields)
 
     def apply(self, plan, **fields):
         return self.run_job("apply", plan=plan["plan"], paths=[str(self.worktree)], **fields)

@@ -78,7 +78,12 @@ class CleanupTests(CleanupFixture, unittest.TestCase):
             stdin=subprocess.PIPE,
         )
         try:
-            self.assertIn("Process uses worktree", self.preview()["rows"][1]["reason"])
+            references = MODULE.process_references(Path(f"/proc/{process.pid}"))
+            self.assertIn(str(self.worktree), references)
+            self.assertIn(
+                "Process uses worktree",
+                self.preview(process_paths=[str(self.worktree)])["rows"][1]["reason"],
+            )
         finally:
             process.stdin.close()
             process.wait(timeout=5)

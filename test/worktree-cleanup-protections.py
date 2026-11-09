@@ -130,6 +130,23 @@ class CleanupTests(CleanupFixture, unittest.TestCase):
             MODULE.safe_failure(ValueError("sensitive text")), "Snapshot protection check failed"
         )
 
+    def test_unreadable_same_user_process_fails_closed(self):
+        process = mock.Mock()
+        process.name = str(os.getpid() + 1)
+        process.stat.return_value.st_uid = os.getuid()
+        with (
+            mock.patch.object(MODULE.Path, "iterdir", return_value=[process]),
+            mock.patch.object(
+                MODULE, "process_references", side_effect=PermissionError(errno.EACCES, "blocked")
+            ),
+        ):
+            with self.assertRaises(PermissionError):
+                MODULE.active_process_paths()
+        plan = self.preview(fail_process_scan=True)
+        self.assertEqual(plan["counts"]["eligible"], 0)
+        self.assertEqual(plan["rows"][1]["reason"], "Same-user process inspection failed")
+        self.assertTrue(self.worktree.exists())
+
     def test_path_traversal_tampering_and_caller_restrictions(self):
         plan = self.preview()
         for fields in [
