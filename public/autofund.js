@@ -20,6 +20,7 @@ const ACCOUNT_LABEL = {
   hackerone: "HackerOne API token",
   "play-sa": "Google Play service account",
   "play-keystore": "Play upload keystore",
+  razorpay: "Razorpay keys",
 };
 const AAB_COMMAND =
   "ssh vps 'sudo cat /var/lib/autofund-revenue/play/<id>/app-release.aab' > app.aab";
@@ -712,6 +713,43 @@ function tokenForm(label, help) {
 
 const cloudflareForm = () => tokenForm("Cloudflare tunnel token", CLOUDFLARE_HELP);
 
+const RAZORPAY_HELP =
+  "Razorpay Dashboard > Account & Settings > API Keys. Webhook: https://shop.nefro.dev/pay/razorpay/webhook, event payment_link.paid. Test keys first.";
+const RAZORPAY_KEY_ID = /^rzp_(test|live)_[A-Za-z0-9]{14}$/;
+
+function razorpayForm() {
+  const keyId = secretInput("text");
+  const keySecret = secretInput("password");
+  const webhookSecret = secretInput("password");
+  return {
+    controls: [
+      formField("Key ID", keyId),
+      formField("Key secret", keySecret),
+      formField("Webhook secret", webhookSecret),
+      el("p", "af-note", RAZORPAY_HELP),
+    ],
+    read: () => {
+      const keyIdValue = keyId.value.trim();
+      const keySecretValue = keySecret.value.trim();
+      const webhookSecretValue = webhookSecret.value.trim();
+      if (!RAZORPAY_KEY_ID.test(keyIdValue))
+        throw new Error("Enter the Key ID (rzp_test_ or rzp_live_ plus 14 characters).");
+      if (!keySecretValue || !webhookSecretValue)
+        throw new Error("Enter the key secret and the webhook secret.");
+      return JSON.stringify({
+        key_id: keyIdValue,
+        key_secret: keySecretValue,
+        webhook_secret: webhookSecretValue,
+      });
+    },
+    clear: () => {
+      keyId.value = "";
+      keySecret.value = "";
+      webhookSecret.value = "";
+    },
+  };
+}
+
 /** Each builder returns { controls, read, clear }. read() returns the exact string to send or throws a short message. */
 function apifyForm() {
   const token = secretInput("password");
@@ -777,6 +815,7 @@ const FORMS = {
   "cloudflare-tunnel": cloudflareForm,
   hackerone: hackeroneForm,
   "play-sa": playSaForm,
+  razorpay: razorpayForm,
 };
 
 async function storeSecret(name, value) {
