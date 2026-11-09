@@ -6,6 +6,7 @@ import path from "node:path";
 import readline from "node:readline";
 import { DatabaseSync } from "node:sqlite";
 import { isPrCreate, parsePrRef, prsFromResult } from "./session-prs.ts";
+import { WorktreeEvidenceIndex } from "./worktree-evidence.ts";
 
 const MAX_TEXT = 128_000;
 const MAX_LINE = 8 * 1024 * 1024;
@@ -135,6 +136,7 @@ function touchesOfToolUse(block: any): [string, string][] {
 
 export class SessionSearch {
   private db: DatabaseSync;
+  private worktrees: WorktreeEvidenceIndex;
   private pending: Promise<void> | undefined;
   private closed = false;
   private maintenance = false;
@@ -210,6 +212,7 @@ export class SessionSearch {
       if (this.echoPending || this.mapPending) this.scheduleCleanup();
       else if (version < 4) this.db.exec("PRAGMA user_version=4;");
     }
+    this.worktrees = new WorktreeEvidenceIndex(this.db, dataDir);
     this.scheduleBackground();
   }
 
@@ -406,6 +409,7 @@ export class SessionSearch {
   }
 
   private remove(thread: string) {
+    this.worktrees.remove(thread);
     this.deleteFts(thread);
     this.db.prepare("DELETE FROM events WHERE thread=?").run(thread);
     this.db.prepare("DELETE FROM sessions WHERE thread=?").run(thread);
@@ -413,6 +417,15 @@ export class SessionSearch {
     this.db.prepare("DELETE FROM echo_calls WHERE thread=?").run(thread);
     this.db.prepare("DELETE FROM prs WHERE thread=?").run(thread);
     this.db.prepare("DELETE FROM touches WHERE thread=?").run(thread);
+  }
+
+  /** Canonical execution ownership and usage metadata; no transcript content or caller SQL. */
+  async worktreeEvidence() {
+    try {
+      return this.worktrees.snapshot(await this.sync());
+    } catch {
+      return this.worktrees.snapshot(true);
+    }
   }
 
   /** Rows of what threads touched (files, brain pages, peers) with ts >= since. */
@@ -564,6 +577,7 @@ export class SessionSearch {
       if (!ids.has(row.thread)) this.remove(String(row.thread));
     for (const entry of valid) await this.syncThread(entry);
     this.touchesPending = false;
+    await this.worktrees.refresh(valid);
   }
 
   /** Fill touches from an already indexed log, leaving events and FTS rows alone. */
@@ -760,6 +774,7 @@ export class SessionSearch {
     try {
       if (!rebuild || this.closed) return;
       this.db.exec("PRAGMA secure_delete=ON;");
+      this.worktrees.reset();
       this.db.exec(
         "DELETE FROM session_fts; DELETE FROM events; DELETE FROM sessions; DELETE FROM fts_map; DELETE FROM pr_calls; DELETE FROM prs; DELETE FROM echo_calls; DELETE FROM touches;",
       );

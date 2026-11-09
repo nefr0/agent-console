@@ -54,6 +54,8 @@ bin/scheduled-tasks update "AI news digest" --json '{"time":"10:00","tz":"UTC"}'
 bin/scheduled-tasks update <task-id> --file patch.json
 ```
 
+`console-tool worktrees --repo PATH` previews stale Git worktrees. Apply only selected paths from that plan with `console-tool worktrees apply --plan ID --path PATH` (repeat `--path` to select more). The command waits for the cleanup job and prints a status command if its wait deadline expires. Use `console-tool worktrees status --job ID` to inspect it later. Apply archives the worktree files and recovery references before removal; it does not provide a restore API. See [worktree cleanup safety and recovery](docs/worktree-cleanup.md).
+
 Task selectors accept an id or an exact case-insensitive title; duplicate titles require an id. Without a run id, `report` reads the latest saved report and `transcript` reads the latest run with a thread. Reports use their saved git commit when available. Transcripts return `next` for the next `--start`, with at most 100 events per request. `update` accepts a partial config (`title`, `prompt`, `provider`, `model`, `effort`, `mode`, `cwd`, `repeat`, `time`, `day`, `tz`, `enabled`, `saveOutput`, `limitMin`); unrelated fields and run history are preserved. Use `--file -` for JSON from stdin. Unattended Auto credentials may fetch data but cannot update tasks.
 
 **Thread actions (⋯ menu).** Rename, Fork, Download (Markdown), Share, Delete. Fork continues from this session: Claude forks its real session, Pi copies its directory, Codex uses the transcript as context. Refused while a turn is running.

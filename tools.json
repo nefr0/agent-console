@@ -114,12 +114,13 @@
     {
       "name": "console-tool",
       "path": "bin/console-tool",
-      "description": "Agent Console session history search and read, CLI lookup, Pi research subagent, transcript credential redaction. One-shot verbs, bounded output, inside Agent Console sessions.",
+      "description": "Agent Console session history search and read, CLI lookup, Pi research subagent, transcript credential redaction, and safe worktree cleanup preview/apply/status. One-shot verbs, bounded output, inside Agent Console sessions.",
       "usage": [
         "console-tool search TERMS [--provider claude|codex|pi] | read SESSION LINE",
         "console-tool cli TERMS...",
         "console-tool research \"TASK\" [--folder DIR] (up to 11 min: run_in_background)",
-        "console-tool redact scan|apply|verify|status [--job ID]"
+        "console-tool redact scan|apply|verify|status [--job ID]",
+        "console-tool worktrees [preview] --repo PATH; worktrees apply --plan ID --path PATH...; worktrees status --job ID"
       ],
       "tags": [
         "sessions",
@@ -128,6 +129,10 @@
         "research",
         "pi",
         "redact",
+        "worktrees",
+        "worktree",
+        "cleanup",
+        "git",
         "cli",
         "lookup",
         "transcripts"

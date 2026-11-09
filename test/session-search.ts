@@ -549,3 +549,65 @@ async function cleanupChecks(base: string) {
   delete process.env.BRAIN_ROOT;
   console.log("PASS touches");
 }
+
+// Worktree evidence backfills logs already indexed for text and remains incremental after restart.
+{
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), "ac-search-worktree-"));
+  const thread = {
+    id: "worktree-owner",
+    provider: "claude",
+    title: "Owner",
+    cwd: "/repos/project",
+    archived: true,
+  };
+  const logfile = path.join(directory, "logs", `${thread.id}.jsonl`);
+  fs.mkdirSync(path.dirname(logfile));
+  fs.writeFileSync(path.join(directory, "threads.json"), JSON.stringify([thread]));
+  fs.writeFileSync(logfile, `${toolUse("create", "git worktree add /worktrees/owned")}\n`);
+  let indexed = new SessionSearch(directory);
+  try {
+    await indexed.warm();
+    assert.equal(
+      (await indexed.worktreeEvidence()).entries.some((entry) => entry.kind === "create"),
+      false,
+    );
+    indexed.close();
+    indexed = new SessionSearch(directory);
+    fs.appendFileSync(logfile, `${toolResult("create", "Preparing worktree")}\n`);
+    const snapshot = await indexed.worktreeEvidence();
+    assert.equal(snapshot.stale, false);
+    assert.equal(
+      snapshot.entries.find((entry) => entry.kind === "create")?.path,
+      "/worktrees/owned",
+    );
+    assert.equal(snapshot.entries.find((entry) => entry.kind === "create")?.resultLine, 2);
+    const unchanged = await indexed.worktreeEvidence();
+    assert.deepEqual(unchanged.traversal, { logsRead: 0, bytesRead: 0, eventsRead: 0 });
+    assert.equal(unchanged.version, snapshot.version);
+
+    indexed.close();
+    const raw = new DatabaseSync(path.join(directory, "session-search.sqlite"));
+    raw.exec("DELETE FROM worktree_calls; DELETE FROM worktree_logs");
+    raw.close();
+    indexed = new SessionSearch(directory);
+    const backfill = await indexed.worktreeEvidence();
+    assert.equal(
+      backfill.entries.filter((entry) => entry.kind === "create").length,
+      1,
+      "existing FTS checkpoints do not suppress evidence backfill",
+    );
+    assert.equal(backfill.traversal.logsRead, 1);
+    await indexed.beginMaintenance();
+    fs.writeFileSync(logfile, `${user("redacted log")}\n`);
+    await indexed.endMaintenance(true);
+    assert.equal(
+      (await indexed.worktreeEvidence()).entries.length,
+      0,
+      "maintenance rebuild removes evidence derived from redacted content",
+    );
+    console.log("PASS worktree evidence facade and backfill");
+  } finally {
+    indexed.close();
+    fs.rmSync(directory, { recursive: true, force: true });
+  }
+}
