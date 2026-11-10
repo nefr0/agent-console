@@ -186,7 +186,7 @@ function renderMetrics(m) {
     (c) => c.i,
     () => el("i"),
     (n, c) => {
-      n.style.setProperty("--h", `${Math.max(4, c.v)}%`);
+      n.style.setProperty("--h", String(Math.max(4, c.v) / 100));
       n.className = tier(c.v);
       n.title = `Core ${c.i}: ${pct(c.v)}`;
     },
@@ -786,7 +786,7 @@ function renderMounts(disk) {
       r.querySelector(".top span").textContent =
         `${bytes(d.used)} used · ${bytes(d.avail)} free · ${bytes(d.size)}`;
       const i = r.querySelector(".meter i");
-      i.style.width = `${d.pcent}%`;
+      i.style.setProperty("--f", String(d.pcent / 100));
       i.className = tier(d.pcent);
     },
   );
@@ -814,7 +814,7 @@ function buildDuRow(child, maxSize) {
   name.append(el("b", "", child.path.split("/").pop()));
   const meterBar = el("div", "meter");
   const fill = el("i");
-  fill.style.width = `${(child.size / maxSize) * 100}%`;
+  fill.style.setProperty("--f", String(child.size / maxSize));
   meterBar.append(fill);
   name.append(meterBar);
   row.append(

@@ -188,12 +188,14 @@ body.host .dh {
 }
 .cores i {
   flex: 1;
-  height: var(--h);
-  min-height: 2px;
+  height: 100%;
   background: var(--accent);
   border-radius: 1px;
   opacity: 0.85;
-  transition: height var(--dur-3) var(--ease);
+  /* --h is a 0..1 fraction; the 0.1 floor keeps a 2px sliver on the 20px strip. */
+  transform: scaleY(max(var(--h), 0.1));
+  transform-origin: bottom;
+  transition: transform var(--dur-3) var(--ease);
 }
 .cores i.warn {
   background: var(--warn);
@@ -432,10 +434,14 @@ body.host .dh {
 }
 .meter i {
   display: block;
+  width: 100%;
   height: 100%;
   background: var(--accent);
   border-radius: 3px;
-  transition: width var(--dur-3) var(--ease);
+  /* --f is a 0..1 fraction of the track. */
+  transform: scaleX(var(--f, 0));
+  transform-origin: left;
+  transition: transform var(--dur-3) var(--ease);
 }
 .meter i.warn {
   background: var(--warn);
@@ -916,4 +922,11 @@ div.hrow.du {
 }
 .health-dot {
   position: relative;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cores i,
+  .meter i {
+    transition: none;
+  }
 }
