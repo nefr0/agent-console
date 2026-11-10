@@ -231,6 +231,8 @@
 }
 .tool .note,
 .sec .note {
+  max-width: 72ch;
+  text-wrap: pretty;
   margin: var(--sp-3) 0 0;
   color: var(--t3);
   font: var(--fw-reg) var(--f-xs);
@@ -596,6 +598,8 @@
   gap: var(--sp-2);
 }
 .scanbar .note {
+  max-width: 72ch;
+  text-wrap: pretty;
   margin: 0;
 }
 
