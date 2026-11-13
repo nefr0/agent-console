@@ -455,7 +455,8 @@ async function checkEarlierPrefetch(browser: Browser, threadId: string) {
       await new Promise((resolve) => requestAnimationFrame(resolve));
       frames++;
     }
-    for (let wait = 0; wait < 10; wait++) await new Promise((resolve) => requestAnimationFrame(resolve));
+    for (let wait = 0; wait < 10; wait++)
+      await new Promise((resolve) => requestAnimationFrame(resolve));
     return {
       frames,
       sentAt: [...probe.sentAt],
