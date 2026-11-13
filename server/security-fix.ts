@@ -1,15 +1,20 @@
 import { randomBytes } from "node:crypto";
 
-// Builds the "Fix it" prompt for one security finding. Facts that pass a strict regex go outside the
+// Builds the "Fix it" prompt for one security finding or the scan summary. Facts that pass a strict regex go outside the
 // fence; everything copied from scanner output goes inside one randomly tagged untrusted fence.
-export type FixKind = "trivy" | "falco" | "clamav";
-export const FIX_KINDS = new Set<string>(["trivy", "falco", "clamav"]);
+export type FixKind = "trivy" | "falco" | "clamav" | "all";
+export const FIX_KINDS = new Set<string>(["trivy", "falco", "clamav", "all"]);
 
 const FIELD_CAP = 400;
 const ALERT_CAP = 10;
 const PROMPT_CAP = 6 * 1024;
 const TITLE_KEY_CAP = 60;
-const NAMES: Record<FixKind, string> = { trivy: "Trivy", falco: "Falco", clamav: "ClamAV" };
+const NAMES: Record<FixKind, string> = {
+  trivy: "Trivy",
+  falco: "Falco",
+  clamav: "ClamAV",
+  all: "security alerts",
+};
 const RE_SEVERITY = /^(CRITICAL|HIGH|MEDIUM|LOW|Emergency|Alert|Critical|Error|Warning|Notice)$/;
 const RE_CVE = /^CVE-\d{4}-\d{4,9}$/;
 const RE_PKG = /^[\w@./+:~-]{1,100}$/;
@@ -31,7 +36,9 @@ export function sanitize(value: unknown): string {
 }
 
 export const fixTitle = (kind: FixKind, key: string) =>
-  `Fix: ${NAMES[kind]} ${sanitize(key).slice(0, TITLE_KEY_CAP)}`;
+  kind === "all"
+    ? "Fix security alerts"
+    : `Fix: ${NAMES[kind]} ${sanitize(key).slice(0, TITLE_KEY_CAP)}`;
 
 type Section = { facts: string[]; data: string[] };
 
@@ -88,7 +95,35 @@ function clamavSection(scan: any, key: string): Section {
   return { facts: ["severity: infected file"], data: [`path: ${sanitize(hit.path)}`] };
 }
 
+function allSection(scan: any): Section {
+  const tools = scan?.tools || {};
+  const targets = (tools.trivy?.targets || []).filter((target: any) => !target.thirdParty);
+  const count = (value: unknown) =>
+    Number.isSafeInteger(value) && Number(value) >= 0 ? Number(value) : 0;
+  const critical = targets.reduce(
+    (total: number, target: any) => total + count(target.counts?.CRITICAL),
+    0,
+  );
+  const high = targets.reduce(
+    (total: number, target: any) => total + count(target.counts?.HIGH),
+    0,
+  );
+  const scanId = clean(RE_SCAN_ID, scan?.id);
+  return {
+    facts: compact([
+      scanId ? `Fetch the selected scan for details: /api/security/scans/${scanId}` : null,
+      `Infected files: ${count(tools.clamav?.infected?.length)}`,
+      `Runtime alerts: ${count(tools.falco?.alerts?.length)}`,
+      `Critical CVEs: ${critical}`,
+      `High CVEs: ${high}`,
+      `Exposed ports: ${(tools.nmap?.openPorts || []).filter((port: any) => port.exposed !== false).length}`,
+    ]),
+    data: [],
+  };
+}
+
 const SECTIONS: Record<FixKind, (scan: any, key: string) => Section> = {
+  all: allSection,
   trivy: trivySection,
   falco: falcoSection,
   clamav: clamavSection,
@@ -106,11 +141,14 @@ const INSTRUCTIONS = [
 
 function assemble(kind: FixKind, scan: any, section: Section, data: string[], tag: string) {
   const head = compact([
-    `Fix this security finding reported by ${NAMES[kind]}.`,
+    kind === "all"
+      ? "Fix the security alerts in the selected scan."
+      : `Fix this security finding reported by ${NAMES[kind]}.`,
     fact("Scan id", clean(RE_SCAN_ID, scan?.id)),
     fact("Scan time", clean(RE_TIME, scan?.finishedAt) || clean(RE_TIME, scan?.startedAt)),
     ...section.facts,
   ]);
+  if (kind === "all") return [...head, "", ...INSTRUCTIONS].join("\n");
   return [
     ...head,
     "",

@@ -5410,7 +5410,7 @@ async function maybeShareLink() {
     sharingLink = false;
   }
 }
-// Security "Fix it" -> /?fix_scan=<id>&fix_kind=trivy|falco|clamav&fix_key=<key>. Same picker as share; the prompt lands as a draft, never sent.
+// Security "Fix it" -> /?fix_scan=<id>&fix_kind=all|trivy|falco|clamav&fix_key=<key>. Same picker as share; the prompt lands as a draft, never sent.
 function securityFixParams() {
   const params = new URLSearchParams(location.search);
   const fix = {
@@ -5442,7 +5442,9 @@ async function maybeSecurityFix() {
   sharingLink = true;
   try {
     const body = await fetchSecurityFix(fix);
-    let choice = await pickShareTarget(FIX_PICK_TEXT);
+    const pickerText =
+      fix.kind === "all" ? "Pick a thread to fix the security alerts, or tap" : FIX_PICK_TEXT;
+    let choice = await pickShareTarget(pickerText);
     if (choice === "") choice = await createShareThread(body.title);
     if (choice === null) return void toast("Fix cancelled");
     if (!(await waitForThread(choice))) throw new Error("The thread did not load.");

@@ -54,6 +54,10 @@
 .verdict .btn {
   justify-self: start;
 }
+.verdict .security-fix {
+  min-width: 44px;
+  text-decoration: none;
+}
 .readout {
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));

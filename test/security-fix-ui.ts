@@ -6,6 +6,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { freePort } from "./free-port.ts";
+import { CLEAN, HISTORY, LATEST } from "./security-mock.ts";
 
 const root = fs.mkdtempSync(path.join(os.tmpdir(), "ac-fix-ui-"));
 const data = path.join(root, "data");
@@ -44,15 +45,24 @@ const server = spawn(process.execPath, [process.env.TEST_SERVER_ENTRY || "server
   },
   stdio: ["ignore", "pipe", "pipe"],
 });
+let serverErrors = "";
+server.stderr.on("data", (chunk) => {
+  serverErrors = (serverErrors + String(chunk)).slice(-4000);
+});
 const listening = new Promise<void>((resolve, reject) => {
-  const timer = setTimeout(() => reject(new Error("Scratch server did not start")), 15000);
+  const timer = setTimeout(
+    () => reject(new Error(`Scratch server did not start\n${serverErrors}`)),
+    60000,
+  );
   server.stdout.on("data", (chunk) => {
     if (String(chunk).includes("agent-console listening")) {
       clearTimeout(timer);
       resolve();
     }
   });
-  server.once("exit", (code) => reject(new Error(`Scratch server exited: ${code}`)));
+  server.once("exit", (code) =>
+    reject(new Error(`Scratch server exited: ${code}\n${serverErrors}`)),
+  );
 });
 listening.catch(() => {});
 let closeBrowser = async () => {};
@@ -68,6 +78,9 @@ try {
     viewport: { width: 412, height: 915 },
     colorScheme: "dark",
     serviceWorkers: "block",
+    ...(process.env.SECURITY_FIX_BASELINE
+      ? { recordVideo: { dir: path.join(shot, "videos"), size: { width: 390, height: 844 } } }
+      : {}),
   });
   context.setDefaultTimeout(8000);
   await context.addCookies([
@@ -167,6 +180,119 @@ try {
     assert.deepEqual(picked.errors, []);
     await picked.page.close();
   }
+  // Summary Fix uses the displayed scan and reuses the existing thread draft picker.
+  const summaryReply = {
+    title: "Fix security alerts",
+    prompt: "Please fix the security alerts from this scan.",
+  };
+  for (const [name, viewport] of sizes) {
+    const summary = await context.newPage();
+    await summary.setViewportSize(viewport);
+    const errors: string[] = [];
+    const sends: unknown[] = [];
+    const posts: string[] = [];
+    summary.on("pageerror", (error) => errors.push(error.message));
+    summary.on("websocket", (socket) =>
+      socket.on("framesent", (frame) => {
+        if (JSON.parse(String(frame.payload)).t === "send") sends.push(frame.payload);
+      }),
+    );
+    await summary.route("**/api/security/**", (route) => {
+      const endpoint = new URL(route.request().url()).pathname;
+      if (endpoint.endsWith("/fix")) {
+        posts.push(route.request().postData() || "");
+        return route.fulfill({ json: summaryReply });
+      }
+      const payload = endpoint.endsWith("/latest")
+        ? { result: LATEST }
+        : endpoint.endsWith("/history")
+          ? { scans: HISTORY }
+          : { running: false };
+      return route.fulfill({ json: payload });
+    });
+    const baselineScript = process.env.SECURITY_FIX_BASELINE;
+    if (baselineScript) {
+      await summary.route("**/security.js", (route) =>
+        route.fulfill({
+          contentType: "application/javascript",
+          body: fs.readFileSync(baselineScript, "utf8"),
+        }),
+      );
+      await summary.goto(`${base}/security`);
+      await summary.locator('#hm[aria-busy="false"]').waitFor();
+      assert.equal(
+        await summary.locator("#verdict").getByRole("link", { name: "Fix", exact: true }).count(),
+        0,
+      );
+      await summary.screenshot({ path: path.join(shot, `summary-before-${name}.png`) });
+      await summary.unroute("**/security.js");
+    }
+    await summary.goto(`${base}/security`);
+    const fixButton = summary.locator("#verdict").getByRole("link", { name: "Fix", exact: true });
+    await fixButton.waitFor();
+    assert.equal(await fixButton.count(), 1);
+    assert.ok(
+      ((await fixButton.boundingBox())?.width || 0) >= 44,
+      "Fix touch target at least 44px wide",
+    );
+    await summary.screenshot({ path: path.join(shot, `summary-after-${name}.png`) });
+    await fixButton.click();
+    await summary.locator("body.sharing").waitFor();
+    assert.match(
+      (await summary.locator("#share-banner-text").textContent()) || "",
+      /security alerts/i,
+    );
+    assert.deepEqual(JSON.parse(posts[0]), { scan: LATEST.id, kind: "all", key: "all" });
+    await summary.screenshot({ path: path.join(shot, `summary-picker-${name}.png`) });
+    await summary.locator("#threads > li").first().click();
+    await summary.waitForFunction(
+      (prompt) => document.querySelector<HTMLTextAreaElement>("#input")?.value.endsWith(prompt),
+      summaryReply.prompt,
+    );
+    const draft = await summary
+      .locator("#input")
+      .evaluate((inputEl) => (inputEl as HTMLInputElement).value);
+    assert.ok(draft.includes(reply.prompt), "existing draft preserved");
+    assert.ok(draft.endsWith(summaryReply.prompt), "security prompt appended");
+    await summary.screenshot({ path: path.join(shot, `summary-draft-${name}.png`) });
+    assert.deepEqual(sends, [], "summary selection does not send a message");
+    assert.deepEqual(errors, []);
+    const video = summary.video();
+    await summary.close();
+    if (name === "phone") await video?.saveAs(path.join(shot, "summary-flow.webm"));
+  }
+  for (const result of [CLEAN, null]) {
+    const noFindings = await context.newPage();
+    await noFindings.route("**/api/security/**", (route) => {
+      const endpoint = new URL(route.request().url()).pathname;
+      const payload = endpoint.endsWith("/latest")
+        ? { result }
+        : endpoint.endsWith("/history")
+          ? { scans: [] }
+          : { running: false };
+      return route.fulfill({ json: payload });
+    });
+    await noFindings.goto(`${base}/security`);
+    await noFindings.locator('#hm[aria-busy="false"]').waitFor();
+    assert.equal(
+      await noFindings.locator("#verdict").getByRole("link", { name: "Fix", exact: true }).count(),
+      0,
+    );
+    await noFindings.close();
+  }
+  await context.close();
+  if (process.env.SECURITY_FIX_BASELINE)
+    fs.writeFileSync(
+      path.join(shot, "verification.txt"),
+      `${[
+        "Paired baseline/candidate: same scratch server, mocked LATEST scan, dark theme, phone 390x844 and desktop 1280x800, one page per viewport.",
+        "Baseline uses main public/security.js; candidate uses worktree public/security.js. Both loaded to aria-busy=false.",
+        "Summary Fix links: baseline 0; candidate 1, for both viewports.",
+        "Candidate click opens security-alert thread picker; POST body uses displayed scan ID, kind all, key all.",
+        "Existing thread selection preserves draft and appends security prompt. No websocket send or page errors in either candidate flow.",
+        "Limitations: mocked security data and fix response; scratch mock provider. Baseline demonstrates button absence only.",
+      ].join("\n")}\n`,
+    );
   console.log("security-fix-ui ok");
 } finally {
   await closeBrowser();

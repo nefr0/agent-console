@@ -153,6 +153,11 @@ function buildVerdictButtons(result) {
     buttonBar.append(back);
   }
   if (result?.id) buttonBar.append(logButton(result.id, "Scan log"));
+  if (result?.id && result.status === "findings") {
+    const fix = el("a", "btn sm primary security-fix", "Fix");
+    fix.href = `/?fix_scan=${encodeURIComponent(result.id)}&fix_kind=all&fix_key=all`;
+    buttonBar.append(fix);
+  }
   return buttonBar;
 }
 function buildReadout(result) {
