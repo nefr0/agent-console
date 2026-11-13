@@ -6,6 +6,10 @@ import { HistoryIndex } from "../server/history.ts";
 import { codexModels, codexTranslator } from "../server/providers/codex.ts";
 import { pageBudget } from "../server/threads.ts";
 
+// Page sizes follow the same env overrides as the server (CI sets AGENT_CONSOLE_PAGE).
+const envPage = Number(process.env.AGENT_CONSOLE_PAGE) || 40;
+const envBytes = Number(process.env.AGENT_CONSOLE_PAGE_BYTES) || 96_000;
+
 const dir = fs.mkdtempSync(path.join(os.tmpdir(), "ac-history-"));
 try {
   const file = path.join(dir, "log.jsonl");
@@ -302,8 +306,8 @@ try {
   assert.equal(out.find((e) => e.type === "token_usage").cached_input_tokens, 50);
   // Chained older loads ask for a wider page: clamped to [base..160], bytes scale with events up to 4x, bad input keeps the base.
   for (const [small, baseLimit, baseBytes] of [
-    [false, 40, 96_000],
-    [true, 24, 48_000],
+    [false, envPage, envBytes],
+    [true, Math.ceil(envPage * 0.6), envBytes / 2],
   ] as const) {
     const base = { limit: baseLimit, maxBytes: baseBytes };
     for (const missing of [undefined, null, "48", NaN, Infinity, 1.5, {}])
@@ -327,8 +331,16 @@ try {
     assert.deepEqual(pageBudget(small, 100_000), pageBudget(small, 160), "above 160 clamps down");
     assert.ok(pageBudget(small, 160).maxBytes <= baseBytes * 4, "byte cap never passes 4x");
   }
-  assert.equal(pageBudget(true, 160).maxBytes, 48_000 * 4, "phone: 160/24 caps at 4x bytes");
-  assert.equal(pageBudget(false, 160).maxBytes, 96_000 * 4, "desktop: 160/40 = 4x bytes");
+  assert.equal(
+    pageBudget(true, 160).maxBytes,
+    (envBytes / 2) * 4,
+    "phone: 160 events caps at 4x bytes",
+  );
+  assert.equal(
+    pageBudget(false, 160).maxBytes,
+    envBytes * 4,
+    "desktop: 160 events caps at 4x bytes",
+  );
   console.log(
     "PASS indexed history: bounded reads, deltas after a line, contiguous pages, UTF-8, appends, truncation, missing logs; Codex catalog and token telemetry",
   );
