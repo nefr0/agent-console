@@ -17,9 +17,7 @@ fs.writeFileSync(
   { mode: 0o755 },
 );
 process.env.AGENT_CONSOLE_BRAIN = path.join(root, "bin", "brain");
-const { brainContext, harnessInstructions } = await import(
-  "../server/providers/brain.ts"
-);
+const { brainContext, harnessInstructions } = await import("../server/providers/brain.ts");
 const runs = () =>
   fs.existsSync(count) ? fs.readFileSync(count, "utf8").split("\n").filter(Boolean).length : 0;
 

@@ -112,6 +112,4 @@ export function personaInstructions(name: string): string {
 
 /** Style, session instructions, and the brain index (its header holds the recall and save contract) for harnesses accepting one instruction string. */
 export const harnessInstructions = async () =>
-  [stylePreamble(), SESSION_INSTRUCTIONS, await brainContext()]
-    .filter(Boolean)
-    .join("\n\n");
+  [stylePreamble(), SESSION_INSTRUCTIONS, await brainContext()].filter(Boolean).join("\n\n");

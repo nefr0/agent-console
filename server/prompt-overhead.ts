@@ -11,14 +11,7 @@ import { STYLE_FILE, stylePreamble } from "./providers/brain.ts";
 import { claudeConfigDir } from "./providers/claude-accounts.ts";
 import { SESSION_INSTRUCTIONS } from "./providers/console-mcp.mjs";
 
-type Kind =
-  | "instructions"
-  | "import"
-  | "brain-index"
-  | "style"
-  | "session"
-  | "skills"
-  | "agents";
+type Kind = "instructions" | "import" | "brain-index" | "style" | "session" | "skills" | "agents";
 type SkipReason = "sensitive" | "outside-home" | "too-large" | "cycle" | "limit";
 type DupSection = { heading: string; bytes: number; alsoIn: string[] };
 type Source = {
