@@ -384,6 +384,9 @@ export function claudeStartArgs(thread: ThreadSpec): string[] {
     "--model",
     thread.model,
   ];
+  // hidden flag (CLI 2.1.319): the showThinkingSummaries setting is ignored in -p mode, so thinking_delta stays empty without it
+  if (process.env.AGENT_CONSOLE_CLAUDE_THINKING !== "omitted")
+    args.push("--thinking-display", "summarized");
   if (thread.effort && thread.effort !== "default") args.push("--effort", thread.effort);
   args.push(...claudeConsoleSettingsArgs(thread.advisor));
   args.push(...leanMcpArgs());

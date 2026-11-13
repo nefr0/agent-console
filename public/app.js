@@ -3573,19 +3573,48 @@ function createLiveElement(live, kind) {
     live.prose = msg.prose;
     return;
   }
-  const box = el("div", "msg think live");
-  box.append(icon("sparkle"), el("span", "", "Thinking…"));
+  createThinkingLive(live);
+}
+// Live reasoning box: an open <details> so the user can collapse it while it streams. It is built once and updated in place,
+// so a collapse survives every repaint; the final block replaces it with the collapsed "Reasoning" box (onAssistantThinking).
+function createThinkingLive(live) {
+  const box = el("details", "msg think live");
+  box.open = true;
+  const timer = el("span", "dur", "0ms");
+  const sum = el("summary");
+  sum.append(icon("sparkle"), el("span", "", "Thinking…"), timer, icon("chev-right", "chev"));
+  const body = el("div", "think-body");
+  live.thinkPinned = true;
+  body.addEventListener("scroll", () => {
+    live.thinkPinned = body.scrollHeight - body.scrollTop - body.clientHeight < 8;
+  });
+  box.append(sum, body);
   live.thinkingEl = box;
+  live.thinkBody = body;
+  live.thinkTimer = timer;
+  live.thinkTick = setInterval(() => {
+    if (box.isConnected) paintThinkTimer(live);
+    else clearInterval(live.thinkTick);
+  }, 1000);
+}
+function paintThinkTimer(live) {
+  const since = state.thinkAt ?? performance.now();
+  live.thinkTimer.textContent = stepDur(performance.now() - since);
+}
+function paintThinking(live) {
+  const body = live.thinkBody;
+  if (body.textContent !== live.thinking) body.textContent = live.thinking || "";
+  if (live.thinkPinned) body.scrollTop = body.scrollHeight;
+  paintThinkTimer(live);
 }
 function paintLive(live) {
   if (live.textEl && live.prose) renderMarkdown(live.text || "", live.prose);
-  if (live.thinkingEl)
-    live.thinkingEl.querySelector("span").textContent =
-      "Thinking… " + (live.thinking || "").slice(-200).replace(/\s+/g, " ");
+  if (live.thinkingEl) paintThinking(live);
 }
 function dropLive(kind) {
   const L = state.live;
   if (!L) return;
+  if (kind === "thinking") clearInterval(L.thinkTick);
   L[kind + "El"]?.remove();
   L[kind + "El"] = null;
   L[kind] = "";

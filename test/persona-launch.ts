@@ -21,6 +21,14 @@ try {
   assert.equal(agent({ issueRun: { role: "work" } }), "orchestrator");
   assert.equal(agent({ issueRun: { role: "review" } }), "reviewer");
   assert.equal(agent({ schedule: { task: "dream" } }), "dream");
+  const flagAt = claudeStartArgs(base).indexOf("--thinking-display");
+  assert.ok(
+    flagAt >= 0 && claudeStartArgs(base)[flagAt + 1] === "summarized",
+    "thinking summaries on by default",
+  );
+  process.env.AGENT_CONSOLE_CLAUDE_THINKING = "omitted";
+  assert.ok(!claudeStartArgs(base).includes("--thinking-display"), "env omitted drops the flag");
+  delete process.env.AGENT_CONSOLE_CLAUDE_THINKING;
   const main = piMainPrompt(base, "BRAIN");
   assert.ok(main.includes("PERSONA-orchestrator") && main.endsWith("BRAIN"));
   assert.equal(

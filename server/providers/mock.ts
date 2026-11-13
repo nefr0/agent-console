@@ -4,6 +4,7 @@ import type { Agent, AgentCtx, Attachment, Provider, QuestionReply, ThreadSpec }
 // Deterministic fake agent for tests and UI work: no network, no quota. Enabled with AGENT_CONSOLE_MOCK=1.
 //   "slow ..."   streams for ~10s (to test Stop)      "fail ..."  ends the turn with an error
 //   "tool ..."   runs a fake Bash tool call            "agent ..." runs a background subagent with nested activity (~1.6s)
+//   "think: ..." streams thinking summary deltas (~1.7s), then the thinking block, a text reply and the result
 //   "todo ..."   adds a todo through the agent tool endpoint, as an agent would
 //   "ctx N ..."  reports the context N% full           anything else is echoed back
 interface MockRun {
@@ -272,6 +273,36 @@ function mockAgentScript(run: MockRun) {
   mockAt(run, 1600, () => mockDone(run));
 }
 
+export const MOCK_THINKING =
+  "Weighing the request. Checking the repo layout. Planning the smallest safe change.";
+
+function mockThinkingEvent(run: MockRun, delta: object) {
+  run.ctx.event({ type: "stream_event", event: { type: "content_block_delta", delta } });
+}
+
+function mockThinkScript(run: MockRun, reply: string) {
+  const chunks = MOCK_THINKING.match(/.{1,16}/g) ?? [];
+  chunks.forEach((chunk, index) => {
+    mockAt(run, 100 + 250 * index, () =>
+      mockThinkingEvent(run, { type: "thinking_delta", thinking: chunk }),
+    );
+  });
+  const endAt = 100 + 250 * chunks.length;
+  mockAt(run, endAt, () =>
+    run.ctx.event({
+      type: "assistant",
+      message: {
+        role: "assistant",
+        content: [
+          { type: "thinking", thinking: MOCK_THINKING },
+          { type: "text", text: reply },
+        ],
+      },
+    }),
+  );
+  mockAt(run, endAt + 30, () => mockDone(run));
+}
+
 function mockToolScript(run: MockRun, reply: string) {
   const { ctx } = run;
   mockAt(run, 10, () =>
@@ -361,6 +392,7 @@ const MOCK_SCRIPTS: [string, (run: MockRun, reply: string) => void][] = [
 ];
 
 function mockRunScript(run: MockRun, text: string, reply: string) {
+  if (text.includes("think:")) return mockThinkScript(run, reply);
   const match = MOCK_SCRIPTS.find(([prefix]) => text.startsWith(prefix));
   (match ? match[1] : mockEchoScript)(run, reply);
 }

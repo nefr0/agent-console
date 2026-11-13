@@ -2061,23 +2061,18 @@ details[open] > summary .chev {
   white-space: pre-wrap;
   word-break: break-word;
 }
-.think.live {
-  display: flex;
-  align-items: center;
-  gap: var(--sp-2);
-  padding: var(--sp-2) var(--sp-3);
-  color: var(--t2);
-  min-height: 2.5rem;
-}
-.think.live .ico {
-  color: var(--accent);
+.think.live .ico:first-child {
   animation: pulse 1.4s ease-in-out infinite;
 }
-.think.live span {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  min-width: 0;
+.think.live .think-body {
+  max-height: calc(8 * 1.45em);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+@media (min-width: 900px) {
+  .think.live .think-body {
+    max-height: calc(14 * 1.45em);
+  }
 }
 /* consecutive tool calls sit closer together: they read as one run of work */
 .card + .card {
@@ -3962,8 +3957,8 @@ body.login {
   .spin {
     animation: spin 1.6s linear infinite !important;
   }
-  .think.live .ico {
-    animation: none;
+  .think.live .ico:first-child {
+    animation: none !important;
   }
   #side {
     transition: none !important;
