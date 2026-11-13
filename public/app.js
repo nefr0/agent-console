@@ -2107,6 +2107,7 @@ async function showHistory(m) {
   if (token !== state.renderToken) return;
   alignHistory();
   state.rendering = false;
+  wakePaging();
   if (cur()?.operation !== "compact") settleCompact("interrupted");
   $("chat").setAttribute("aria-busy", "false");
   state.lastScrollTop = $("chat").scrollTop;
@@ -2188,6 +2189,7 @@ function historyDone(m, refreshing, cachedMetrics) {
   });
   state.measurement = null;
   state.revalidating = false;
+  wakePaging();
   state.snapshot = null;
   $("conversation-updating")?.remove();
   window.agentConsoleMetrics = refreshing ? { ...cachedMetrics, refresh: metrics } : metrics;
@@ -2210,12 +2212,12 @@ function earlierButton() {
     if (b.disabled) return;
     requestEarlier(state.current);
   };
-  if (state.earlierWanted === state.current) earlierLoading(b); // a tap queued before a redraw replaced the button
+  if (state.earlierPill === state.request) earlierLoading(b); // a tap queued before a redraw replaced the button
   return b;
 }
 function earlierIdle() {
   const b = $("chat").querySelector(":scope > .earlier");
-  if (!b || state.loadingEarlier || state.earlierWanted === state.current) return;
+  if (!b || state.loadingEarlier || state.earlierPill === state.request) return;
   b.disabled = false;
   b.textContent = "Show earlier messages";
 }
@@ -2224,15 +2226,51 @@ function earlierLoading(b) {
   b.disabled = true;
   b.textContent = "Loading…";
 }
-// A tap is kept per thread, not per button or draw: a refresh redraw replaces the button mid-wait and must not swallow it.
-function requestEarlier(thread) {
-  if (thread !== state.current) return void (state.earlierWanted = state.earlierGateAt = null);
-  state.earlierWanted = thread;
-  state.earlierGateAt ??= performance.now(); // first trigger (tap or scroll gate) of this page, until its request is sent
+// Older pages are prefetched while the reader is still EARLIER_SCREENS screens from the top, so the pill rarely shows.
+const EARLIER_SCREENS = 3;
+const EARLIER_TOP = 200; // "at the top": the reader is waiting on the page, so it says "Loading…"
+const pagingWaiters = [];
+function pagingBlocked() {
+  return (state.revalidating && !state.deferredRefresh) || state.rendering || state.loadingEarlier;
+}
+// Resolves on the next wakePaging(): whoever clears a blocking flag wakes the queued page request, no polling.
+function pagingIdle() {
+  return new Promise((resolve) => pagingWaiters.push(resolve));
+}
+function wakePaging() {
+  for (const resolve of pagingWaiters.splice(0)) resolve();
+}
+function showEarlierPill() {
+  if (state.earlierBuffer) return; // the page is here, drawn off-screen: it slides in once the reader is still
+  state.earlierPill = state.request;
   earlierLoading($("chat").querySelector(":scope > .earlier"));
-  // A refresh or page draw in flight would swallow the click, so wait for it instead of ignoring it.
-  if ((state.revalidating && !state.deferredRefresh) || state.rendering || state.loadingEarlier)
-    return void setTimeout(requestEarlier, 100, thread);
+}
+// A trigger is kept per opened view (state.request), not per button or draw: a refresh redraw replaces the button mid-wait and must not swallow it.
+// `pill` is false for a prefetch: the reader is still screens away from the top, so the button keeps saying "Show earlier messages".
+function requestEarlier(thread, pill = true) {
+  if (thread !== state.current) return void (state.earlierWanted = state.earlierGateAt = null);
+  if (pill) showEarlierPill();
+  if (state.loadingEarlier || state.earlierWanted === state.request) return; // the page in flight or queued answers this trigger
+  state.earlierWanted = state.request;
+  state.earlierGateAt ??= performance.now(); // first trigger (tap or scroll gate) of this page, until its request is sent
+  void sendEarlier(thread, state.request);
+}
+function earlierStale(request) {
+  return request !== state.request || state.earlierWanted !== request;
+}
+// A refresh or page draw in flight would swallow the request, so it waits its turn; a thread switch drops it.
+async function sendEarlier(thread, request) {
+  for (;;) {
+    while (pagingBlocked()) await pagingIdle();
+    if (earlierStale(request)) return;
+    if (trySendEarlier(thread)) break;
+    // The socket may be down (phone woke up, reconnecting): a dropped request would leave the button dead, so retry until it is sent.
+    await new Promise((resolve) => setTimeout(resolve, 300));
+  }
+  state.earlierWanted = state.earlierGateAt = null;
+  state.loadingEarlier = true;
+}
+function trySendEarlier(thread) {
   state.pageAt = performance.now();
   const chain = state.earlierChain || 0;
   state.requestSentAt = performance.now();
@@ -2244,32 +2282,25 @@ function requestEarlier(thread) {
     still_ms: 0,
     chain,
   };
-  // The socket may be down (phone woke up, reconnecting): a dropped request would leave the button dead, so retry until it is sent.
-  if (
-    !send({
-      t: "open",
-      thread,
-      before: state.start,
-      request: state.request,
-      small: SMALL_PAGES,
-      // Chained loads double the page each time (the server clamps it): tool events fold into existing cards, so small pages add no height.
-      limit: (SMALL_PAGES ? 24 : 40) * 2 ** Math.min(chain, 8),
-    })
-  )
-    return void setTimeout(requestEarlier, 300, thread);
-  state.earlierWanted = state.earlierGateAt = null;
-  state.loadingEarlier = true;
+  return send({
+    t: "open",
+    thread,
+    before: state.start,
+    request: state.request,
+    small: SMALL_PAGES,
+    // Chained loads double the page each time (the server clamps it): tool events fold into existing cards, so small pages add no height.
+    limit: (SMALL_PAGES ? 24 : 40) * 2 ** Math.min(chain, 8),
+  });
 }
 async function waitReaderStill(token) {
   const waitAt = performance.now();
-  while (readerScrolling()) await new Promise((resolve) => setTimeout(resolve, 120));
+  await readerStill();
   if (state.measurement && state.measurement.still_ms != null)
     state.measurement.still_ms += performance.now() - waitAt;
   return token === state.renderToken;
 }
-function settleEarlierButton(btn, start, fetchMore) {
+function settleEarlierButton(btn, start) {
   if (!(start > 0 && btn)) return void btn?.remove();
-  if (fetchMore) return;
   btn.disabled = false;
   btn.textContent = "Show earlier messages";
 }
@@ -2286,22 +2317,23 @@ async function settleEarlierAnchor(chat, { anchor, anchorTop, fromBottom }, toke
   }
   return true;
 }
-// Older events are drawn off-screen, then slid in above what is there with the scroll position held, so the page does not jump.
-async function showEarlier(m) {
-  const pageAt = state.pageAt;
-  const chat = $("chat");
-  const token = state.renderToken;
+// Older events are drawn off-screen as soon as they arrive, buffered (one page at most), then slid in above what is there
+// with the scroll position held once the reader is still, so the page does not jump.
+async function drawEarlierOffscreen(m, token) {
   const host = el("div");
   const live = state.live;
   state.live = null;
   state.rendering = true;
-  $("chat").setAttribute("aria-busy", "true");
   state.into = host;
   const ok = await renderEvents(m.events, token, false);
-  if (!ok) return;
+  if (!ok) return null;
   state.into = null;
-  // The reply can land mid-drag: inserting then fights the finger, so hold the page until the reader is still (live events queue in pendingLive).
-  if (!(await waitReaderStill(token))) return;
+  state.live = live;
+  state.rendering = false;
+  for (const pending of state.pendingLive.splice(0)) onEvent(pending, true);
+  return host;
+}
+function insertEarlier(chat, host, m) {
   const btn = chat.querySelector(":scope > .earlier");
   const anchor = btn?.nextElementSibling || chat.firstElementChild;
   const anchorTop = anchor?.getBoundingClientRect().top;
@@ -2311,22 +2343,21 @@ async function showEarlier(m) {
   else chat.prepend(...host.childNodes);
   state.start = m.start;
   // Pages are counted in events, and a run of tool/sub-agent events can fold into existing rows and add nothing visible:
-  // keep fetching (button stays "Loading…") until a screenful appears, so one tap always shows something.
+  // keep fetching until a screenful appears, so one tap always shows something.
   const fetchMore =
     m.start > 0 &&
     btn &&
     chat.scrollHeight - heightBefore < chat.clientHeight &&
     (state.earlierChain = (state.earlierChain || 0) + 1) < 20;
   if (!fetchMore) state.earlierChain = 0;
-  settleEarlierButton(btn, m.start, fetchMore);
-  if (!(await settleEarlierAnchor(chat, { anchor, anchorTop, fromBottom }, token))) return;
-  state.live = live;
-  state.loadingEarlier = false;
-  state.rendering = false;
-  chat.setAttribute("aria-busy", "false");
-  state.lastScrollTop = chat.scrollTop;
-  for (const e of state.pendingLive.splice(0)) onEvent(e, true);
-  reconcileCards();
+  // A tap that is still answered by the next chained page keeps its "Loading…".
+  if (!(fetchMore && state.earlierPill === state.request)) {
+    state.earlierPill = null;
+    settleEarlierButton(btn, m.start);
+  }
+  return { anchor, anchorTop, fromBottom, fetchMore: !!fetchMore };
+}
+function recordEarlierPage(m, pageAt, measurement) {
   latency.record({
     kind: "page",
     thread: m.thread,
@@ -2337,18 +2368,49 @@ async function showEarlier(m) {
     events: m.events.length,
     bytes: m.bytes,
     wire_bytes: m.wire_bytes,
-    prepare_ms: Math.max(0, m.receivedAt - m.roundtrip_ms - (state.measurement?.at || 0)),
+    prepare_ms: Math.max(0, m.receivedAt - m.roundtrip_ms - (measurement?.at || 0)),
     roundtrip_ms: m.roundtrip_ms,
     decode_ms: m.decode_ms,
-    hidden: state.measurement?.hidden,
-    gate_ms: state.measurement?.gate_ms,
-    still_ms: state.measurement?.still_ms,
-    chain: state.measurement?.chain,
+    hidden: measurement?.hidden,
+    gate_ms: measurement?.gate_ms,
+    still_ms: measurement?.still_ms,
+    chain: measurement?.chain,
   });
-  state.measurement = null;
+}
+async function showEarlier(m) {
+  const pageAt = state.pageAt;
+  const measurement = state.measurement;
+  const chat = $("chat");
+  const token = state.renderToken;
+  const host = await drawEarlierOffscreen(m, token);
+  if (!host) return;
+  // The reply can land mid-drag or mid-fling: inserting then fights the finger, so only the insert waits for stillness.
+  state.earlierBuffer = host;
+  const still = await waitReaderStill(token);
+  state.earlierBuffer = null;
+  if (!still) return;
+  const live = state.live;
+  state.live = null;
+  state.rendering = true;
+  chat.setAttribute("aria-busy", "true");
+  const placed = insertEarlier(chat, host, m);
+  if (!(await settleEarlierAnchor(chat, placed, token))) return;
+  state.live = live;
+  state.loadingEarlier = false;
+  state.rendering = false;
+  chat.setAttribute("aria-busy", "false");
+  state.lastScrollTop = chat.scrollTop;
+  for (const pending of state.pendingLive.splice(0)) onEvent(pending, true);
+  reconcileCards();
+  recordEarlierPage(m, pageAt, measurement);
+  if (state.measurement === measurement) state.measurement = null;
   chatSearch.refresh();
-  if (fetchMore) return requestEarlier(m.thread);
-  if (state.deferredRefresh && nearBottom()) refreshConversation();
+  // Keep paging while the reader is still within the prefetch band (or the page added less than a screen).
+  const near = chat.scrollTop < EARLIER_SCREENS * chat.clientHeight;
+  if (state.start > 0 && (placed.fetchMore || near))
+    requestEarlier(m.thread, placed.fetchMore && chat.scrollTop < EARLIER_TOP);
+  wakePaging();
+  if (!state.loadingEarlier && state.deferredRefresh && nearBottom()) refreshConversation();
 }
 
 function renderHeadTitle(thread) {
@@ -3116,7 +3178,11 @@ function onChatScroll() {
   else if (upward || nearBottom()) state.stick = nearBottom();
   state.lastScrollTop = top;
   if (state.deferredRefresh && nearBottom()) refreshConversation();
-  if (upward && top < 200) loadEarlierWhenStill();
+  earlierOnScroll(chat, top, upward);
+}
+function earlierOnScroll(chat, top, upward) {
+  if (upward && top < EARLIER_SCREENS * chat.clientHeight) prefetchEarlier(top);
+  else if (top < EARLIER_TOP && state.loadingEarlier) showEarlierPill(); // reached the top before the page arrived
 }
 // Coalesce to one pass per frame so scroll bursts don't force layout reads on every event.
 $("chat").addEventListener(
@@ -3129,7 +3195,7 @@ $("chat").addEventListener(
 );
 // The reader's own scrolling (finger down, wheel, or the fling that follows). While it lasts nothing re-anchors or
 // follows the bottom: on Android a scrollTop write during a drag snaps the list back under the finger.
-const gesture = { touching: false, at: 0, idle: 0 };
+const gesture = { touching: false, at: 0, lifted: [] };
 function readerScrolling() {
   return gesture.touching || performance.now() - gesture.at < 160;
 }
@@ -3139,6 +3205,7 @@ function following() {
 function markGesture(touching) {
   if (touching != null) gesture.touching = touching;
   gesture.at = performance.now();
+  if (!gesture.touching) for (const check of gesture.lifted.splice(0)) check();
 }
 $("chat").addEventListener("touchstart", () => markGesture(true), {
   passive: true,
@@ -3148,15 +3215,22 @@ for (const event of ["touchend", "touchcancel"])
     passive: true,
   });
 $("chat").addEventListener("wheel", () => markGesture(), { passive: true });
-// Older pages are fetched and slid in only once the list is still: inserting mid-fling moves content under the finger.
-function loadEarlierWhenStill() {
-  clearTimeout(gesture.idle);
-  const button = $("chat").querySelector(":scope > .earlier:not(:disabled)");
-  if (button) state.earlierGateAt ??= performance.now(); // gate_ms starts at the first trigger, not at the click
-  if (readerScrolling()) return void (gesture.idle = setTimeout(loadEarlierWhenStill, 120));
-  const chat = $("chat");
-  if (chat.scrollTop < 200) button?.click();
-  else if (!state.loadingEarlier && !state.earlierWanted) state.earlierGateAt = null;
+// Older pages are requested and drawn off-screen mid-fling; only their insert waits for the list to be still (showEarlier).
+function prefetchEarlier(top) {
+  if (!(state.start > 0) || !$("chat").querySelector(":scope > .earlier")) return;
+  requestEarlier(state.current, top < EARLIER_TOP);
+}
+// Resolves once the finger is up and no scroll has moved the list for 160 ms: deadline timers and touchend, not a polling loop.
+function readerStill() {
+  return new Promise((resolve) => {
+    const check = () => {
+      if (gesture.touching) return void gesture.lifted.push(check);
+      const left = gesture.at + 160 - performance.now();
+      if (left > 0) setTimeout(check, left);
+      else resolve();
+    };
+    check();
+  });
 }
 let historyAnchor;
 let followFrame;
