@@ -82,6 +82,31 @@ try {
   assert.match(body.prompt, /invoice\.pdf\.exe/);
   assert.equal(body.title, "Fix: ClamAV /srv/uploads/invoice.pdf.exe");
 
+  res = await post({ scan: GOOD, kind: "all", key: "all" });
+  body = await res.json();
+  assert.equal(res.status, 200);
+  assert.equal(body.title, "Fix security alerts");
+  assert.match(body.prompt, /Fix the security alerts in the selected scan/);
+  assert.match(body.prompt, /Scan id: 20261022T231500Z/);
+  assert.match(body.prompt, /Scan time: 2026-10-23T00:02:41Z/);
+  assert.match(body.prompt, /\/api\/security\/scans\/20261022T231500Z/);
+  assert.match(body.prompt, /Infected files: 1/);
+  assert.match(body.prompt, /Runtime alerts: 3/);
+  assert.match(body.prompt, /Critical CVEs: 1/);
+  assert.match(body.prompt, /High CVEs: 3/);
+  assert.match(body.prompt, /Exposed ports: 1/);
+  assert.match(body.prompt, /Quick scan/);
+  assert.doesNotMatch(body.prompt, /invoice\.pdf|OpenSSL|Write below etc/);
+  assert.equal((await post({ scan: GOOD, kind: "all", key: "" })).status, 400, "empty all key");
+
+  res = await post({ scan: "EVILSCAN1", kind: "all", key: "all" });
+  body = await res.json();
+  assert.equal(res.status, 200);
+  assert.match(body.prompt, /Scan id: EVILSCAN1/);
+  assert.match(body.prompt, /\/api\/security\/scans\/EVILSCAN1/);
+  assert.match(body.prompt, /Runtime alerts: 30/);
+  assert.doesNotMatch(body.prompt, /ignore previous instructions|Evil rule/);
+
   assert.equal((await post({ scan: GOOD, kind: "nmap", key: "k" })).status, 400, "bad kind");
   assert.equal((await post({ scan: "bad id!", kind: "trivy", key: "k" })).status, 400, "bad scan");
   assert.equal((await post({ scan: GOOD, kind: "trivy", key: "" })).status, 400, "empty key");
