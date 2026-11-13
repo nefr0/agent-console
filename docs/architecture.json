@@ -98,7 +98,7 @@
           "id": "app",
           "label": "App client",
           "tech": "public/app.js",
-          "desc": "Records one cold sample per page load when the first history paints; App start row in the speed panel; three-dots menu gets Map a repo (PAGE_LINKS maps-link); context panels and turn breakdown load by dynamic import; running dot pulse kept under reduced motion",
+          "desc": "Records one cold sample per page load when the first history paints; App start row in the speed panel; three-dots menu gets Map a repo (PAGE_LINKS maps-link); context panels and turn breakdown load by dynamic import; running dot pulse kept under reduced motion; history paging prefetches older pages within three screens of the top through a one-page queue and doubles the requested page on chained loads",
           "icon": "app-window"
         },
         {
@@ -195,7 +195,7 @@
           "id": "latency",
           "label": "Latency store",
           "tech": "server/latency.ts, SQLite",
-          "desc": "New kind cold with nullable ttfb_ms, dcl_ms, ws_open_ms, hello_ms columns",
+          "desc": "New kind cold with nullable ttfb_ms, dcl_ms, ws_open_ms, hello_ms columns; page samples gain gate_ms, still_ms and chain columns",
           "icon": "database"
         },
         {
@@ -204,6 +204,14 @@
           "tech": "server/history.ts \u00b7 HistoryIndex",
           "desc": "New: restore newline offsets for an exact matching file generation; otherwise scan JSONL. Existing page and reconnect cursors stay physical-line based.",
           "icon": "list-filter"
+        },
+        {
+          "id": "history-page-budget",
+          "label": "Page budget",
+          "tech": "server/threads.ts \u00b7 pageBudget",
+          "desc": "Clamps the requested older-page limit between the base page and 160 events; the byte cap scales with the limit, at most 4x; missing or invalid keeps the base page",
+          "icon": "gauge",
+          "status": "added"
         },
         {
           "id": "history-view-cache",
@@ -781,6 +789,8 @@
     {"from":"tt-http","to":"tt-turns","label":"rewind / fork"},
     {"from":"tt-turns","to":"tt-shadow","label":"snapshot, restore"},
     {"from":"app","to":"history-snapshot","label":"open or older page via Threads.page"},
+    {"from":"app","to":"history-page-budget","label":"older page limit (chained)"},
+    {"from":"history-page-budget","to":"history-snapshot","label":"limit and byte cap"},
     {"from":"history-snapshot","to":"history-cache","label":"offsets and view sidecars"},
     {"from":"history-proofs","to":"history-snapshot","label":"models invariants; not runtime"},
     {"from":"ds-tokens","to":"ds-build","label":"read token layer"},
