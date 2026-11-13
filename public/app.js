@@ -2226,15 +2226,24 @@ function earlierLoading(b) {
 }
 // A tap is kept per thread, not per button or draw: a refresh redraw replaces the button mid-wait and must not swallow it.
 function requestEarlier(thread) {
-  if (thread !== state.current) return void (state.earlierWanted = null);
+  if (thread !== state.current) return void (state.earlierWanted = state.earlierGateAt = null);
   state.earlierWanted = thread;
+  state.earlierGateAt ??= performance.now(); // first trigger (tap or scroll gate) of this page, until its request is sent
   earlierLoading($("chat").querySelector(":scope > .earlier"));
   // A refresh or page draw in flight would swallow the click, so wait for it instead of ignoring it.
   if ((state.revalidating && !state.deferredRefresh) || state.rendering || state.loadingEarlier)
     return void setTimeout(requestEarlier, 100, thread);
   state.pageAt = performance.now();
-  state.measurement = { thread, at: state.pageAt, hidden: document.hidden };
+  const chain = state.earlierChain || 0;
   state.requestSentAt = performance.now();
+  state.measurement = {
+    thread,
+    at: state.pageAt,
+    hidden: document.hidden,
+    gate_ms: state.requestSentAt - state.earlierGateAt,
+    still_ms: 0,
+    chain,
+  };
   // The socket may be down (phone woke up, reconnecting): a dropped request would leave the button dead, so retry until it is sent.
   if (
     !send({
@@ -2243,14 +2252,19 @@ function requestEarlier(thread) {
       before: state.start,
       request: state.request,
       small: SMALL_PAGES,
+      // Chained loads double the page each time (the server clamps it): tool events fold into existing cards, so small pages add no height.
+      limit: (SMALL_PAGES ? 24 : 40) * 2 ** Math.min(chain, 8),
     })
   )
     return void setTimeout(requestEarlier, 300, thread);
-  state.earlierWanted = null;
+  state.earlierWanted = state.earlierGateAt = null;
   state.loadingEarlier = true;
 }
 async function waitReaderStill(token) {
+  const waitAt = performance.now();
   while (readerScrolling()) await new Promise((resolve) => setTimeout(resolve, 120));
+  if (state.measurement && state.measurement.still_ms != null)
+    state.measurement.still_ms += performance.now() - waitAt;
   return token === state.renderToken;
 }
 function settleEarlierButton(btn, start, fetchMore) {
@@ -2327,6 +2341,9 @@ async function showEarlier(m) {
     roundtrip_ms: m.roundtrip_ms,
     decode_ms: m.decode_ms,
     hidden: state.measurement?.hidden,
+    gate_ms: state.measurement?.gate_ms,
+    still_ms: state.measurement?.still_ms,
+    chain: state.measurement?.chain,
   });
   state.measurement = null;
   chatSearch.refresh();
@@ -3134,9 +3151,12 @@ $("chat").addEventListener("wheel", () => markGesture(), { passive: true });
 // Older pages are fetched and slid in only once the list is still: inserting mid-fling moves content under the finger.
 function loadEarlierWhenStill() {
   clearTimeout(gesture.idle);
+  const button = $("chat").querySelector(":scope > .earlier:not(:disabled)");
+  if (button) state.earlierGateAt ??= performance.now(); // gate_ms starts at the first trigger, not at the click
   if (readerScrolling()) return void (gesture.idle = setTimeout(loadEarlierWhenStill, 120));
   const chat = $("chat");
-  if (chat.scrollTop < 200) chat.querySelector(":scope > .earlier:not(:disabled)")?.click();
+  if (chat.scrollTop < 200) button?.click();
+  else if (!state.loadingEarlier && !state.earlierWanted) state.earlierGateAt = null;
 }
 let historyAnchor;
 let followFrame;

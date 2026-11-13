@@ -513,6 +513,19 @@ export const HISTORY_PROJECTION = {
   project: projectHistoryLine,
 };
 
+const PAGE_LIMIT_MAX = 160; // events a chained older-page load may ask for in one page
+const PAGE_BYTES_SCALE_MAX = 4; // byte cap grows with the event limit, never past this multiple of the base cap
+
+// A client chaining older-page loads asks for a bigger page (`limit`); missing or invalid keeps the base. Bytes scale with events.
+export function pageBudget(small: boolean, requested?: unknown) {
+  const base = small ? Math.ceil(PAGE * 0.6) : PAGE;
+  const baseBytes = small ? PAGE_BYTES / 2 : PAGE_BYTES;
+  if (typeof requested !== "number" || !Number.isInteger(requested))
+    return { limit: base, maxBytes: baseBytes };
+  const limit = Math.min(PAGE_LIMIT_MAX, Math.max(base, requested));
+  return { limit, maxBytes: baseBytes * Math.min(PAGE_BYTES_SCALE_MAX, limit / base) };
+}
+
 // Too big: begin at the earliest later user message that fits, else just the newest PAGE events (mid-turn, like an unaligned page).
 function pageCut(
   items: { e: any; size: number }[],
@@ -1795,9 +1808,9 @@ export class Threads {
   // page never opens mid-turn, with long tool output clipped. `start > 0` means there is older history to ask for.
   // With `since` (the last line a cached view holds) it is only the lines after that, or a full page when too many arrived meanwhile.
   // `small` (phones) gets 60% of the events and half the bytes: less to download and draw on every open and older page.
-  page(threadId: string, before?: number, since?: number, small = false) {
-    const limit = small ? Math.ceil(PAGE * 0.6) : PAGE,
-      maxBytes = small ? PAGE_BYTES / 2 : PAGE_BYTES;
+  // `requested` (chained older loads) widens the page: see pageBudget.
+  page(threadId: string, before?: number, since?: number, small = false, requested?: number) {
+    const { limit, maxBytes } = pageBudget(small, requested);
     const at = performance.now();
     const file = logFile(threadId);
     const delta =

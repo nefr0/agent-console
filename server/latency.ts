@@ -26,6 +26,8 @@ const STAGES = [
   "dcl_ms",
   "ws_open_ms",
   "hello_ms",
+  "gate_ms",
+  "still_ms",
 ];
 const duration = (n: unknown) =>
   typeof n === "number" && Number.isFinite(n) && n >= 0 && n <= 300_000;
@@ -37,6 +39,7 @@ function validLatencyShape(sample: any) {
     return false;
   if (STAGES.some((stage) => sample[stage] != null && !duration(sample[stage]))) return false;
   if (sample.events != null && !size(sample.events, 100_000)) return false;
+  if (sample.chain != null && !size(sample.chain, 1000)) return false;
   return !["bytes", "wire_bytes"].some(
     (field) => sample[field] != null && !size(sample[field], 64 * 1024 * 1024),
   );
@@ -79,6 +82,9 @@ function latencyRow(
     sample.dcl_ms ?? null,
     sample.ws_open_ms ?? null,
     sample.hello_ms ?? null,
+    sample.gate_ms ?? null,
+    sample.still_ms ?? null,
+    sample.chain ?? null,
     sample.width,
     sample.height,
     sample.touch === true ? 1 : 0,
@@ -121,8 +127,11 @@ export class LatencyStore {
       "dcl_ms",
       "ws_open_ms",
       "hello_ms",
+      "gate_ms",
+      "still_ms",
     ])
       if (!columns.has(name)) this.db.exec(`ALTER TABLE latency ADD COLUMN ${name} REAL`);
+    if (!columns.has("chain")) this.db.exec("ALTER TABLE latency ADD COLUMN chain INTEGER");
     this.prune();
   }
   record(
@@ -138,7 +147,7 @@ export class LatencyStore {
     }
     if (!rows.length) return 0;
     const insert = this.db.prepare(
-      "INSERT INTO latency(at,thread,provider,kind,total_ms,server_ms,render_ms,wait_ms,events,bytes,wire_bytes,prepare_ms,roundtrip_ms,decode_ms,module_ms,ttfb_ms,dcl_ms,ws_open_ms,hello_ms,width,height,touch,hidden) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+      "INSERT INTO latency(at,thread,provider,kind,total_ms,server_ms,render_ms,wait_ms,events,bytes,wire_bytes,prepare_ms,roundtrip_ms,decode_ms,module_ms,ttfb_ms,dcl_ms,ws_open_ms,hello_ms,gate_ms,still_ms,chain,width,height,touch,hidden) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
     );
     this.db.exec("BEGIN");
     try {
