@@ -110,26 +110,8 @@ export function personaInstructions(name: string): string {
   }
 }
 
-/** Keep the write contract discoverable without loading the schema or full memory pages. */
-export function brainInstructions(): string {
-  if (!brainAvailable()) return "";
-  const root = path.dirname(path.dirname(BRAIN_BIN));
-  return [
-    "# Shared brain: required save workflow",
-    `Use the shared memory repository at ${root}; do not create another memory store.`,
-    `Before any memory write, read ${path.join(root, "CLAUDE.md")} and follow its schema.`,
-    `Use the full CLI path ${BRAIN_BIN}; do not assume brain is on PATH.`,
-    "Search existing pages first. Save only durable preferences, decisions, and non-obvious lessons; exclude code inventories, test status, and conversation dumps.",
-    "Update flat wiki/<lowercase-kebab-slug>.md pages with required frontmatter and concise facts. Add one lean line `- wiki/<slug>: summary` to its topic file wiki/index-<topic>.md; top-level wiki/index.md lists topics only.",
-    `Procedures and operating notes go in the ops/ layer. Tag every page with 1-8 atomic tags: run ${BRAIN_BIN} tags suggest for candidates, reuse existing tags before inventing one, and keep each tag a single concept.`,
-    `Append the log using ${BRAIN_BIN} log, run ${BRAIN_BIN} lint and fix findings, then run ${BRAIN_BIN}-doctor and apply its fixes before claiming the save is complete.`,
-    "Never edit wiki/log.md by hand or run git in the brain repository. The console commits saved changes after each turn.",
-    "Automatic recall below contains only the top-level index. Open topic files and pages on demand; brain search finds the rest.",
-  ].join("\n");
-}
-
-/** Style, memory write contract, and index for harnesses accepting one instruction string. */
+/** Style, session instructions, and the brain index (its header holds the recall and save contract) for harnesses accepting one instruction string. */
 export const harnessInstructions = async () =>
-  [stylePreamble(), brainInstructions(), SESSION_INSTRUCTIONS, await brainContext()]
+  [stylePreamble(), SESSION_INSTRUCTIONS, await brainContext()]
     .filter(Boolean)
     .join("\n\n");

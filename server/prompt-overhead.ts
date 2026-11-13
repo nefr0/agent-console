@@ -7,7 +7,7 @@ import { open, readdir, readFile, realpath, stat } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { sensitive } from "./files.ts";
-import { brainInstructions, STYLE_FILE, stylePreamble } from "./providers/brain.ts";
+import { STYLE_FILE, stylePreamble } from "./providers/brain.ts";
 import { claudeConfigDir } from "./providers/claude-accounts.ts";
 import { SESSION_INSTRUCTIONS } from "./providers/console-mcp.mjs";
 
@@ -17,7 +17,6 @@ type Kind =
   | "brain-index"
   | "style"
   | "session"
-  | "brain-contract"
   | "skills"
   | "agents";
 type SkipReason = "sensitive" | "outside-home" | "too-large" | "cycle" | "limit";
@@ -77,7 +76,7 @@ type Def = {
   agentsDir?: string;
   agentExt?: ".md" | ".toml";
   overrides?: string;
-  harness: ("style" | "contract" | "session" | "index")[];
+  harness: ("style" | "session" | "index")[];
 };
 
 const resolved = (p: string) => realpath(p).catch(() => path.resolve(p));
@@ -134,7 +133,7 @@ async function layout(home: string, cwd: string): Promise<Def[]> {
     kind,
     config,
     imports: false,
-    harness: ["style", "contract", "session", "index"],
+    harness: ["style", "session", "index"],
     instructions: [
       { file: userFile, label: "User AGENTS.md" },
       { file: path.join(repos, "AGENTS.md"), label: "Workspace AGENTS.md" },
@@ -416,10 +415,10 @@ async function addBrainIndex(scan: ProviderScan, indexFile: string) {
 
 async function addHarnessSources(
   scan: ProviderScan,
-  harnessText: { style: string; contract: string; indexFile: string },
+  harnessText: { style: string; indexFile: string },
 ) {
   const { harness } = scan.def;
-  const { style, contract } = harnessText;
+  const { style } = harnessText;
   if (harness.includes("style"))
     addSource(scan, {
       kind: "style",
@@ -428,14 +427,6 @@ async function addHarnessSources(
       bytes: Buffer.byteLength(style),
       body: style,
       ...(style ? {} : { missing: true as const }),
-    });
-  if (harness.includes("contract"))
-    addSource(scan, {
-      kind: "brain-contract",
-      label: "Brain save contract",
-      path: null,
-      bytes: Buffer.byteLength(contract),
-      body: contract,
     });
   if (harness.includes("session"))
     addSource(scan, {
@@ -604,7 +595,7 @@ async function scanProvider(
   req: Req,
   home: string,
   def: Def,
-  harnessText: { style: string; contract: string; indexFile: string },
+  harnessText: { style: string; indexFile: string },
   duplicates: Overhead["duplicates"],
 ): Promise<Provider> {
   const scan: ProviderScan = {
@@ -645,7 +636,6 @@ async function build(home: string, cwd: string): Promise<Overhead> {
   const harnessText = {
     indexFile: path.join(home, "repos", "brain", "wiki", "index.md"),
     style: stylePreamble(),
-    contract: brainInstructions(),
   };
   for (const def of await layout(home, cwd))
     providers.push(await scanProvider(req, home, def, harnessText, duplicates));
