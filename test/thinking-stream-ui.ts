@@ -56,18 +56,23 @@ const waitForServer = () =>
   new Promise<void>((resolve, reject) => {
     const deadline = Date.now() + 60_000;
     const probe = async () => {
-      if (server.exitCode !== null) return reject(new Error(`scratch server exited: ${serverError}`));
+      if (server.exitCode !== null)
+        return reject(new Error(`scratch server exited: ${serverError}`));
       try {
         if ((await fetch(`${base}/login`)).ok) return resolve();
       } catch {}
-      if (Date.now() > deadline) return reject(new Error(`scratch startup timed out: ${serverError}`));
+      if (Date.now() > deadline)
+        return reject(new Error(`scratch startup timed out: ${serverError}`));
       setTimeout(probe, 100);
     };
     void probe();
   });
 
 const openPage = async (browser: Browser, width: number, height: number) => {
-  const context = await browser.newContext({ serviceWorkers: "block", viewport: { width, height } });
+  const context = await browser.newContext({
+    serviceWorkers: "block",
+    viewport: { width, height },
+  });
   await context.addCookies([
     { name: "__Host-ac_session", value: session, domain: "127.0.0.1", path: "/", secure: true },
   ]);
@@ -91,9 +96,7 @@ const liveLength = (page: Page) =>
   );
 
 const noOverflow = (page: Page) =>
-  page.evaluate(
-    () => document.documentElement.scrollWidth <= document.documentElement.clientWidth,
-  );
+  page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth);
 
 const assertSettled = async (page: Page, label: string) => {
   await page.waitForSelector(".msg.think:not(.live)");
@@ -143,7 +146,9 @@ try {
     () => (document.querySelector(".msg.think.live .think-body")?.textContent?.length ?? 0) > 10,
   );
   await desktop.screenshot({ path: path.join(shots, "thinking-live-desktop.png") });
-  console.log("PASS  thinking-stream-ui: live open box grows, settles collapsed once, survives reload, no overflow");
+  console.log(
+    "PASS  thinking-stream-ui: live open box grows, settles collapsed once, survives reload, no overflow",
+  );
 } finally {
   await browser?.close();
   server.kill("SIGTERM");

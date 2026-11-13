@@ -273,7 +273,8 @@ function mockAgentScript(run: MockRun) {
   mockAt(run, 1600, () => mockDone(run));
 }
 
-export const MOCK_THINKING = "Weighing the request. Checking the repo layout. Planning the smallest safe change.";
+export const MOCK_THINKING =
+  "Weighing the request. Checking the repo layout. Planning the smallest safe change.";
 
 function mockThinkingEvent(run: MockRun, delta: object) {
   run.ctx.event({ type: "stream_event", event: { type: "content_block_delta", delta } });
@@ -281,11 +282,11 @@ function mockThinkingEvent(run: MockRun, delta: object) {
 
 function mockThinkScript(run: MockRun, reply: string) {
   const chunks = MOCK_THINKING.match(/.{1,16}/g) ?? [];
-  chunks.forEach((chunk, index) =>
+  chunks.forEach((chunk, index) => {
     mockAt(run, 100 + 250 * index, () =>
       mockThinkingEvent(run, { type: "thinking_delta", thinking: chunk }),
-    ),
-  );
+    );
+  });
   const endAt = 100 + 250 * chunks.length;
   mockAt(run, endAt, () =>
     run.ctx.event({
