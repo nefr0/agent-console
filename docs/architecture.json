@@ -571,6 +571,43 @@
           "icon": "git-branch"
         }
       ]
+    },
+    {
+      "group": "Live thinking",
+      "icon": "brain",
+      "items": [
+        {
+          "id": "th-claude",
+          "label": "Claude CLI launch",
+          "tech": "claude.ts",
+          "desc": "Adds --thinking-display summarized; env omitted disables",
+          "icon": "terminal",
+          "status": "modified"
+        },
+        {
+          "id": "th-stream",
+          "label": "Thinking deltas",
+          "tech": "stream-json content_block_delta",
+          "desc": "thinking_delta events relayed live to the browser",
+          "icon": "activity"
+        },
+        {
+          "id": "th-live",
+          "label": "Live thinking box",
+          "tech": "app.js createThinkingLive",
+          "desc": "Open box streams text with a timer; collapses to Reasoning",
+          "icon": "brain",
+          "status": "added"
+        },
+        {
+          "id": "th-mock",
+          "label": "Mock think: prompt",
+          "tech": "mock.ts",
+          "desc": "Scripted deltas for the browser test",
+          "icon": "flask-conical",
+          "status": "added"
+        }
+      ]
     }
   ],
   "edges": [
@@ -855,6 +892,9 @@
     {"from": "wt-cleanup", "to": "wt-engine", "label": "child job and live context"},
     {"from": "wt-engine", "to": "wt-state", "label": "verified backup before removal"},
     {"from": "wt-engine", "to": "wt-git", "label": "registered paths only"},
-    {"from": "console-cli", "to": "wt-cli", "label": "worktrees subcommands"}
+    {"from": "console-cli", "to": "wt-cli", "label": "worktrees subcommands"},
+    {"from": "th-claude", "to": "th-stream", "label": "summarized thinking text"},
+    {"from": "th-stream", "to": "th-live", "label": "append to open box"},
+    {"from": "th-mock", "to": "th-stream", "label": "scripted deltas"}
   ]
 }
