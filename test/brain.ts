@@ -17,9 +17,7 @@ fs.writeFileSync(
   { mode: 0o755 },
 );
 process.env.AGENT_CONSOLE_BRAIN = path.join(root, "bin", "brain");
-const { brainContext, brainInstructions, harnessInstructions } = await import(
-  "../server/providers/brain.ts"
-);
+const { brainContext, harnessInstructions } = await import("../server/providers/brain.ts");
 const runs = () =>
   fs.existsSync(count) ? fs.readFileSync(count, "utf8").split("\n").filter(Boolean).length : 0;
 
@@ -43,28 +41,9 @@ try {
   const instructions = await harnessInstructions();
   assert.ok(instructions.includes("v1"));
   assert.ok(
-    instructions.includes(brainInstructions()),
-    "the harness receives the save contract alongside the index",
+    !instructions.includes("Shared brain: required save workflow"),
+    "the stale save contract is no longer injected; the index header carries it",
   );
-  assert.ok(
-    instructions.includes(path.join(root, "CLAUDE.md")),
-    "the schema path follows the configured brain repository",
-  );
-  assert.ok(
-    instructions.includes(`${process.env.AGENT_CONSOLE_BRAIN} lint`),
-    "the full CLI path works without a brain PATH entry",
-  );
-  assert.ok(instructions.includes("wiki/index.md"));
-  assert.ok(instructions.includes("required frontmatter"));
-  assert.ok(instructions.includes("ops/ layer"), "the save text names the ops layer");
-  assert.ok(
-    instructions.includes(`${process.env.AGENT_CONSOLE_BRAIN} tags suggest`),
-    "the save text points to tag suggestions with the full CLI path",
-  );
-  assert.ok(
-    instructions.includes("reuse existing tags") && instructions.includes("1-8 atomic tags"),
-  );
-  assert.ok(instructions.includes("Never edit wiki/log.md by hand or run git"));
   console.log("PASS  brain: cached while the index is unchanged");
 
   fs.writeFileSync(index, "# Brain index\nv2 longer\n");

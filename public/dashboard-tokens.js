@@ -8,7 +8,6 @@ const KINDS = {
   "brain-index": ["Brain index", "--k-brain"],
   style: ["Reply style", "--k-style"],
   session: ["Session rules", "--k-session"],
-  "brain-contract": ["Brain contract", "--k-contract"],
   skills: ["Skills list", "--k-skills"],
   agents: ["Agents list", "--k-agents"],
 };
