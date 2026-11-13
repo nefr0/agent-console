@@ -12,6 +12,7 @@ const port = Number(process.env.COMPOSER_SCROLL_UI_PORT || 17775),
   base = `http://127.0.0.1:${port}`;
 const id = "composer-scroll";
 const longId = "mid-drag-history";
+const prefetchId = "prefetch-history";
 fs.mkdirSync(path.join(data, "uploads"));
 fs.mkdirSync(path.join(data, "logs"));
 fs.writeFileSync(
@@ -40,6 +41,18 @@ fs.writeFileSync(
       cost: 0,
       createdAt: 1,
       updatedAt: 1,
+    },
+    {
+      id: prefetchId,
+      provider: "mock",
+      model: "echo",
+      mode: "acceptEdits",
+      title: "Long prose history",
+      cwd: os.tmpdir(),
+      status: "idle",
+      cost: 0,
+      createdAt: 0,
+      updatedAt: 0,
     },
   ]),
 );
@@ -76,6 +89,23 @@ const longEvents = Array.from({ length: 12 }, (_, turn) => [
 fs.writeFileSync(
   path.join(data, "logs", `${longId}.jsonl`),
   longEvents.map((event) => `${JSON.stringify(event)}\n`).join(""),
+);
+// #524: a long prose thread, several screens per page, for the prefetch lane.
+fs.writeFileSync(
+  path.join(data, "logs", `${prefetchId}.jsonl`),
+  Array.from({ length: 60 }, (_, turn) => [
+    { type: "user_input", text: `prefetch question ${turn}` },
+    {
+      type: "assistant",
+      message: {
+        role: "assistant",
+        content: [{ type: "text", text: `prefetch answer ${turn} `.repeat(60) }],
+      },
+    },
+  ])
+    .flat()
+    .map((event) => `${JSON.stringify(event)}\n`)
+    .join(""),
 );
 process.env.AGENT_CONSOLE_DATA = data;
 const { makeToken } = await import("../server/auth.ts");
@@ -271,6 +301,7 @@ try {
     runViewport(true),
     runViewport(false),
     checkEarlierWaitsForTouchend(browser, longId),
+    checkEarlierPrefetch(browser, prefetchId),
   ]);
 } finally {
   await browser?.close();
@@ -358,5 +389,108 @@ async function checkEarlierWaitsForTouchend(browser: Browser, threadId: string) 
     before.count,
   );
   console.log(`PASS earlier page waits for touchend: ${before.count} msgs held mid-drag`);
+  await context.close();
+}
+
+// #524: scrolling up within three screens of the top requests the older page mid-drag, before the reader reaches the
+// top; it is drawn off-screen and slides in once the finger lifts, so the "Loading…" pill never shows.
+async function checkEarlierPrefetch(browser: Browser, threadId: string) {
+  const context = await browser.newContext({
+    viewport: { width: 390, height: 844 },
+    isMobile: true,
+    hasTouch: true,
+  });
+  await context.addCookies([
+    {
+      name: "__Host-ac_session",
+      value: makeToken(),
+      domain: new URL(base).hostname,
+      path: "/",
+      secure: true,
+    },
+  ]);
+  await context.addInitScript((thread) => {
+    localStorage.setItem("ac_thread", thread);
+    const probe = { sentAt: [] as number[], pill: false };
+    (window as any).prefetchProbe = probe;
+    const send = WebSocket.prototype.send;
+    WebSocket.prototype.send = function (data) {
+      if (typeof data === "string" && /"before":/.test(data))
+        probe.sentAt.push(document.getElementById("chat")!.scrollTop);
+      return send.call(this, data);
+    };
+    new MutationObserver(() => {
+      if (document.querySelector("#chat > .earlier")?.textContent === "Loading…") probe.pill = true;
+    }).observe(document, { subtree: true, childList: true, characterData: true });
+  }, threadId);
+  const page = await context.newPage();
+  const errors: string[] = [];
+  page.on("pageerror", (error) => errors.push(error.message));
+  await page.goto(base);
+  await page.waitForFunction(() => {
+    const chat = document.getElementById("chat") as HTMLElement;
+    return (
+      chat.querySelector(":scope > .earlier:not(:disabled)") &&
+      chat.getAttribute("aria-busy") === "false" &&
+      chat.querySelectorAll(":scope > .msg").length > 3
+    );
+  });
+  const start = await page.evaluate(() => {
+    const chat = document.getElementById("chat") as HTMLElement;
+    return {
+      top: chat.scrollTop,
+      screen: chat.clientHeight,
+      count: chat.querySelectorAll(":scope > .msg").length,
+    };
+  });
+  assert.ok(start.top > 400, `newest page too short to scroll: ${start.top}px`);
+  // Finger down, dragging up 12 px a frame to the top: the request must go out mid-drag, well before scrollTop < 200.
+  const drag = await page.evaluate(async () => {
+    const chat = document.getElementById("chat") as HTMLElement;
+    const probe = (window as any).prefetchProbe;
+    chat.dispatchEvent(new Event("touchstart"));
+    let frames = 0;
+    while (chat.scrollTop > 0) {
+      chat.scrollTop = Math.max(0, chat.scrollTop - 12);
+      await new Promise((resolve) => requestAnimationFrame(resolve));
+      frames++;
+    }
+    for (let wait = 0; wait < 10; wait++)
+      await new Promise((resolve) => requestAnimationFrame(resolve));
+    return {
+      frames,
+      sentAt: [...probe.sentAt],
+      count: chat.querySelectorAll(":scope > .msg").length,
+      top: chat.scrollTop,
+    };
+  });
+  assert.ok(drag.sentAt.length >= 1, "no older-page request while scrolling up");
+  assert.ok(drag.sentAt[0] >= 200, `request sent only at scrollTop ${drag.sentAt[0]}`);
+  assert.ok(
+    drag.sentAt[0] < 3 * start.screen,
+    `request sent outside the 3-screen band: ${drag.sentAt[0]}`,
+  );
+  assert.equal(drag.count, start.count, "page inserted while the finger was down");
+  assert.equal(drag.top, 0, "scroll moved under the finger");
+  await page.evaluate(() =>
+    (document.getElementById("chat") as HTMLElement).dispatchEvent(new Event("touchend")),
+  );
+  await page.waitForFunction(
+    (count) => document.querySelectorAll("#chat > .msg").length > count,
+    start.count,
+  );
+  await page.waitForFunction(
+    () => document.getElementById("chat")!.getAttribute("aria-busy") === "false",
+  );
+  const after = await page.evaluate(() => ({
+    pill: (window as any).prefetchProbe.pill,
+    top: (document.getElementById("chat") as HTMLElement).scrollTop,
+  }));
+  assert.equal(after.pill, false, "the Loading… pill showed although the page was prefetched");
+  assert.ok(after.top > 0, "the inserted page did not keep the reader's place");
+  assert.deepEqual(errors, []);
+  console.log(
+    `PASS earlier prefetch: request at scrollTop ${drag.sentAt[0]} of ${start.top}, page in after touchend, no pill`,
+  );
   await context.close();
 }

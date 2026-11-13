@@ -156,6 +156,29 @@ try {
   );
   assert.equal(store.summary().groups["viewer_tree/workspace/mobile/visible"].count, 1);
   assert.ok(!JSON.stringify(store.summary()).includes("NEVER_STORE_WORKSPACE_PATH"));
+  // Earlier-page paging telemetry: gate/still timings and the chain depth are stored; bad values are rejected.
+  const pageRow = { ...sample, kind: "page", total_ms: 900, gate_ms: 120, still_ms: 340, chain: 3 };
+  assert.equal(
+    store.record(
+      [
+        { ...pageRow, gate_ms: -1 },
+        { ...pageRow, still_ms: Infinity },
+        { ...pageRow, chain: 1.5 },
+        { ...pageRow, chain: -1 },
+        { ...pageRow, chain: 1001 },
+      ],
+      lookup,
+    ),
+    0,
+  );
+  assert.equal(store.record([pageRow, { ...sample, kind: "page", total_ms: 50 }], lookup), 2);
+  const paged = (store.summary().recent as any[]).filter((r) => r.kind === "page");
+  const withTiming = paged.find((r) => r.chain === 3);
+  assert.equal(withTiming.gate_ms, 120);
+  assert.equal(withTiming.still_ms, 340);
+  const plain = paged.find((r) => r.chain === null);
+  assert.equal(plain.gate_ms, null);
+  assert.equal(plain.still_ms, null);
   // Cold-start kind carries the page-load stage columns; out-of-range values are rejected.
   assert.equal(
     store.record(
@@ -202,6 +225,17 @@ try {
     assert.equal(migrated.groups.viewer_open.stages.module_ms.median_ms, 12);
     assert.equal(migrated.groups.open.count, 1);
     assert.equal(migrated.recent.find((s: any) => s.kind === "open").module_ms, null);
+    const legacyOpen = migrated.recent.find((s: any) => s.kind === "open");
+    assert.deepEqual(
+      [legacyOpen.gate_ms, legacyOpen.still_ms, legacyOpen.chain],
+      [null, null, null],
+    );
+    assert.equal(
+      upgraded.record([{ ...sample, kind: "page", gate_ms: 5, still_ms: 6, chain: 2 }], lookup),
+      1,
+    );
+    const migratedPage = upgraded.summary().recent.find((s: any) => s.kind === "page");
+    assert.deepEqual([migratedPage.gate_ms, migratedPage.still_ms, migratedPage.chain], [5, 6, 2]);
   } finally {
     upgraded.close();
   }

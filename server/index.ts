@@ -2318,6 +2318,7 @@ wss.on("connection", (ws) => {
               Number.isInteger(m.before) ? m.before : undefined,
               Number.isInteger(m.since) && m.since >= 0 ? m.since : undefined,
               m.small === true,
+              m.limit,
             ),
           });
         case "create": {
