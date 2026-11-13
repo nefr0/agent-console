@@ -55,7 +55,7 @@
     "test:codemap-ui": "node test/codemap-ui.ts",
     "test:rich": "node test/rich-render-ui.ts",
     "test:files": "node test/latency.ts && node test/files.ts && node test/file-viewer-ui.ts",
-    "test:acode": "node test/acode.ts && node test/acode-tree.ts && node test/acode-plugin.ts && node test/acode-ui.ts",
+    "test:acode": "node test/acode.ts && node test/acode-tree.ts && node test/acode-plugin.ts && node test/acode-ui.ts && node test/thinking-stream-ui.ts",
     "package:acode": "python3 scripts/package-acode.py",
     "vendor": "node scripts/vendor.mjs",
     "test:effort-fit": "\"${AGENT_CONSOLE_TRIAGE_PYTHON:-$HOME/.local/share/agent-console/triage-venv/bin/python}\" test/triage-effort-fit.py",
